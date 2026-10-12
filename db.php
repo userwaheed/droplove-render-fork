@@ -16,14 +16,14 @@ function db(): PDO {
             // Match: postgresql://user:password@host:port/dbname
             $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
             if (preg_match($pattern, $url, $m)) {
-                $dsn = "pgsql:host={$m[3]};port={$m[4]};dbname={$m[5]};user={$m[1]};password={$m[2]};sslmode=require";
+                $dsn = "pgsql:host={$m[3]};port={$m[4]};dbname={$m[5]};user={$m[1]};password={$m[2]}";
             } else {
                 // Fallback: try parse_url (works for plain passwords)
                 $parts = parse_url($url);
                 $dsn = "pgsql:host={$parts['host']};port={$parts['port']};dbname=" . ltrim($parts['path'],'/');
                 if (isset($parts['user'])) $dsn .= ";user={$parts['user']}";
                 if (isset($parts['pass'])) $dsn .= ";password={$parts['pass']}";
-                $dsn .= ';sslmode=require';
+                $dsn .= ''; // PGSSLMODE env var handles SSL
             }
             // Set PGCONNECT env var to ensure SSL mode is applied
             // (PDO PGSQL DSN sslmode parameter may not be respected in all PHP builds)
