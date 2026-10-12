@@ -21,11 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-dev \
     libwebp-dev \
     libgif-dev \
-    && docker-php-ext-install pdo pdo_sqlite intl \
-    && docker-php-ext-install mysqli pdo_pgsql \
+    && docker-php-ext-install pdo pdo_sqlite pdo_pgsql intl mysqli \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install gd \
-    && php -r 'echo "JPEG: ", (int)function_exists("imagecreatefromjpeg"), " WebP: ", (int)function_exists("imagecreatefromwebp"), "\n"; exit(function_exists("imagecreatefromjpeg") ? 0 : 1);' \
+    && php -r 'echo "JPEG: ", (int)function_exists("imagecreatefromjpeg"), " WebP: ", (int)function_exists("imagecreatefromwebp"), " pg: ", (int)function_exists("pg_connect"), "\n"; exit(function_exists("imagecreatefromjpeg") && function_exists("pg_connect") ? 0 : 1);' \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable required Apache modules
