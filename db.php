@@ -7,10 +7,14 @@ function db(): PDO {
     if ($pdo === null) {
         $dsn = DB_DSN;
         if (str_starts_with($dsn, 'postgresql://')) {
-            $p = parse_url($dsn);
-            $pg = ['host'=>$p['host']??'localhost','port'=>$p['port']??5432,'dbname'=>ltrim($p['path']??'/postgres','/'),'user'=>$p['user']??'','password'=>$p['pass']??''];
-            if(!empty($p['query'])) { parse_str($p['query'],$q); if(isset($q['sslmode'])) $pg['sslmode']=$q['sslmode']; }
-            $dsn = 'pgsql:' . http_build_query($pg);
+            // PDO_pg accepts the full postgresql:// URI directly
+            // parse_url fails when password has special chars (Render DB passwords)
+            // Append sslmode=require for Render
+            if (strpos($dsn, '?') === false) {
+                $dsn .= '?sslmode=require';
+            } else {
+                $dsn .= '&sslmode=require';
+            }
         }
         $opt = [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC];
         if (str_starts_with(DB_DSN,'postgresql://')) {
