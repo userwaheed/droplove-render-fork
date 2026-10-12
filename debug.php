@@ -7,6 +7,21 @@ echo "OPENSSL_CONF: [" . getenv('OPENSSL_CONF') . "]\n";
 echo "PGSSLMODE: [" . getenv('PGSSLMODE') . "]\n";
 echo "PG_USE_TUNNEL: [" . getenv('PG_USE_TUNNEL') . "]\n";
 
+// Check if php CLI is available
+echo "\n-- PHP CLI availability --\n";
+echo "php CLI binary: " . PHP_BINARY . "\n";
+echo "php CLI sapi: " . PHP_SAPI . "\n";
+
+// Check if pcntl_fork is available (needed for forking)
+echo "pcntl_fork: " . (function_exists('pcntl_fork') ? 'YES' : 'NO') . "\n";
+echo "pcntl_signal: " . (function_exists('pcntl_signal') ? 'YES' : 'NO') . "\n";
+
+// Check if pg_tunnel.php exists
+echo "\npg_tunnel.php exists: " . (file_exists('/var/www/html/pg_tunnel.php') ? 'YES' : 'NO') . "\n";
+
+// Check if php binary works
+echo "php -v: " . shell_exec('php -v 2>&1') . "\n";
+
 // Check if tunnel is listening on 5433
 echo "\n-- Tunnel status --\n";
 $tfp = @fsockopen("127.0.0.1", 5433, $errno, $errstr, 2);
