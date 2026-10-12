@@ -8,25 +8,20 @@ function db(): PDO {
         $opt = [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC];
         if (str_starts_with(DB_DSN,'postgresql://')) {
             // Parse postgresql:// URL into PDO pgsql DSN.
-            // Render's DATABASE_URL password may contain special characters
-            // that break parse_url(), so we use a regex that handles them.
+            // Render's DATABASE_URL password may contain special characters.
             $url = DB_DSN;
-            // Strip sslmode query param if present, we'll add it explicitly
             $url = preg_replace('/\?.*$/', '', $url);
-            // Match: postgresql://user:password@host:port/dbname
             $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
             if (preg_match($pattern, $url, $m)) {
-                $dsn = "pgsql:host={$m[3]};port={$m[4]};dbname={$m[5]};user={$m[1]};password={$m[2]}";
+                $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
+                    $m[3], $m[4], $m[5], $m[1], $m[2]);
             } else {
-                // Fallback: try parse_url (works for plain passwords)
                 $parts = parse_url($url);
-                $dsn = "pgsql:host={$parts['host']};port={$parts['port']};dbname=" . ltrim($parts['path'],'/');
+                $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', $parts['host'], $parts['port'], ltrim($parts['path'],'/'));
                 if (isset($parts['user'])) $dsn .= ";user={$parts['user']}";
                 if (isset($parts['pass'])) $dsn .= ";password={$parts['pass']}";
-                $dsn .= ''; // PGSSLMODE env var handles SSL
             }
-            // Set PGCONNECT env var to ensure SSL mode is applied
-            // (PDO PGSQL DSN sslmode parameter may not be respected in all PHP builds)
+            // Use PGCONNECT env var for sslmode (libpq respects this)
             putenv('PGCONNECT=sslmode=require');
             $pdo = new PDO($dsn, null, null, $opt);
             $pdo->exec("SET client_encoding = 'UTF8'");

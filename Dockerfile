@@ -23,8 +23,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgif-dev \
     libssl-dev \
     ca-certificates \
-    && docker-php-ext-install pdo pdo_pgsql intl mysqli \
-    && docker-php-ext-enable pdo pdo_pgsql intl mysqli \
+    && docker-php-ext-configure pdo_pgsql --with-pdo-pgsql=/usr \
+    && docker-php-ext-install pdo pdo_pgsql pgsql intl mysqli \
+    && docker-php-ext-enable pdo pdo_pgsql pgsql intl mysqli \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install gd \
     && php -r 'echo "JPEG: ", (int)function_exists("imagecreatefromjpeg"), " WebP: ", (int)function_exists("imagecreatefromwebp"), " PG: ", (int)extension_loaded("pdo_pgsql"), "\n"; exit(function_exists("imagecreatefromjpeg") && extension_loaded("pdo_pgsql") ? 0 : 1);' \
