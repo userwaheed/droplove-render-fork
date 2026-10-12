@@ -2,20 +2,16 @@
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 
-
 function db(): PDO {
     static $pdo = null;
     if ($pdo === null) {
         $opt = [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC];
         if (str_starts_with(DB_DSN,'postgresql://')) {
-            $url = DB_DSN;
-            $url = preg_replace('/\?.*$/', '', $url);
+            $url = preg_replace('/\?.*$/', '', DB_DSN);
             $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
             preg_match($pattern, $url, $m);
-            // Always connect directly to PostgreSQL (PHP 8.2 + OpenSSL 3.0.x handles TLS natively)
-            $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
+            $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s;sslmode=prefer',
                 $m[3], $m[4], $m[5], $m[1], $m[2]);
-            putenv('PGSSLMODE=require');
             $pdo = new PDO($dsn, null, null, $opt);
             $pdo->exec("SET client_encoding = 'UTF8'");
         } else {
