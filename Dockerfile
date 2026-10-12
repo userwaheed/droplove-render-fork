@@ -21,13 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-dev \
     libwebp-dev \
     libgif-dev \
-    php8.3-pgsql \
-    && docker-php-ext-install pdo pdo_sqlite intl mysqli \
-    && docker-php-ext-enable pdo pdo_sqlite intl mysqli \
+    && docker-php-ext-install pdo pdo_pgsql intl mysqli \
+    && docker-php-ext-enable pdo pdo_pgsql intl mysqli \
+    && echo "extension=pdo_pgsql" > /usr/local/etc/php/conf.d/docker-php-ext-pdo_pgsql.ini \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install gd \
     && php -r 'echo "JPEG: ", (int)function_exists("imagecreatefromjpeg"), " WebP: ", (int)function_exists("imagecreatefromwebp"), " PG: ", (int)extension_loaded("pdo_pgsql"), "\n"; exit(function_exists("imagecreatefromjpeg") && extension_loaded("pdo_pgsql") ? 0 : 1);' \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && echo "Build cache buster: pdo_pgsql fix attempt 2"
 
 # Enable required Apache modules
 RUN a2enmod rewrite headers expires deflate
