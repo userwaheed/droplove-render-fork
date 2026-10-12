@@ -7,6 +7,21 @@ echo "OpenSSL: " . OPENSSL_VERSION_TEXT . "\n";
 echo "OPENSSL_CONF: [" . getenv('OPENSSL_CONF') . "]\n";
 echo "PGSSLMODE: [" . getenv('PGSSLMODE') . "]\n";
 
+// Check if the OpenSSL config file exists and show it
+$conf_path = getenv('OPENSSL_CONF') ?: '/usr/local/ssl/openssl.cnf';
+echo "OpenSSL conf file exists: " . (file_exists($conf_path) ? 'YES' : 'NO') . "\n";
+if (file_exists($conf_path)) {
+    echo "OpenSSL conf content:\n";
+    echo file_get_contents($conf_path) . "\n";
+}
+
+// Check OpenSSL default security level
+echo "OpenSSL default SSL context options: " . json_encode(stream_context_get_options(stream_context_create(['ssl' => []]))) . "\n";
+
+// Try with OPENSSL_CONF explicitly set via putenv
+putenv('OPENSSL_CONF=' . $conf_path);
+echo "OPENSSL_CONF after putenv: [" . getenv('OPENSSL_CONF') . "]\n";
+
 // Try direct PDO connection to PostgreSQL
 $db_url = getenv('DATABASE_URL');
 preg_match('/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/', $db_url, $m);
