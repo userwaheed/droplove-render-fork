@@ -81,33 +81,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             switch ($action) {
                 case 'suspend':
                 case 'block':
-                    $pdo->prepare("UPDATE users SET banned = 1, updated_at = NOW() WHERE id = ?")
+                    $pdo->prepare("UPDATE users SET banned = 1, updated_at = datetime('now') WHERE id = ?")
                         ->execute([$id]);
                     flash('success', $target['username'] . ' has been suspended/blocked.');
                     break;
 
                 case 'unsuspend':
                 case 'unblock':
-                    $pdo->prepare("UPDATE users SET banned = 0, is_active = 1, updated_at = NOW() WHERE id = ?")
+                    $pdo->prepare("UPDATE users SET banned = 0, is_active = 1, updated_at = datetime('now') WHERE id = ?")
                         ->execute([$id]);
                     flash('success', $target['username'] . ' has been restored.');
                     break;
 
                 case 'deactivate':
-                    $pdo->prepare("UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = ?")
+                    $pdo->prepare("UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?")
                         ->execute([$id]);
                     flash('success', $target['username'] . ' is now hidden from discover.');
                     break;
 
                 case 'activate':
-                    $pdo->prepare("UPDATE users SET is_active = 1, updated_at = NOW() WHERE id = ?")
+                    $pdo->prepare("UPDATE users SET is_active = 1, updated_at = datetime('now') WHERE id = ?")
                         ->execute([$id]);
                     flash('success', $target['username'] . ' is now visible in discover.');
                     break;
 
                 case 'toggle_verified':
                     $newVal = $isTargetVerified ? 0 : 1;
-                    $pdo->prepare("UPDATE users SET verified = ?, updated_at = NOW() WHERE id = ?")
+                    $pdo->prepare("UPDATE users SET verified = ?, updated_at = datetime('now') WHERE id = ?")
                         ->execute([$newVal, $id]);
                     flash('success', ($newVal ? $target['username'] . ' is now verified.'
                                               : $target['username'] . ' is no longer verified.'));
@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     $newVal = $isTargetAdmin ? 0 : 1;
-                    $pdo->prepare("UPDATE users SET is_admin = ?, updated_at = NOW() WHERE id = ?")
+                    $pdo->prepare("UPDATE users SET is_admin = ?, updated_at = datetime('now') WHERE id = ?")
                         ->execute([$newVal, $id]);
                     flash('success', ($newVal ? $target['username'] . ' is now an admin.'
                                               : $target['username'] . ' is no longer an admin.'));
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 case 'reset':
                     $tmp = bin2hex(random_bytes(8));
-                    $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?")
+                    $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?")
                         ->execute([password_hash($tmp, PASSWORD_DEFAULT), $id]);
                     $_SESSION['reset_pw'] = ['username' => $target['username'], 'password' => $tmp];
                     redirect('/admin.php?id=' . $id);
@@ -328,7 +328,7 @@ function ensure_admin_account(PDO $pdo): void
     $pdo->prepare(
         "INSERT INTO users (email, password_hash, username, first_name, last_name,
                             gender, category, orientation, birth_date, bio, is_active, is_admin, verified, created_at)
-         VALUES (?, ?, ?, ?, ?, 'other', 'single_m', 'flexible', '1990-01-01', ?, 1, 1, 1, NOW())"
+         VALUES (?, ?, ?, ?, ?, 'other', 'single_m', 'flexible', '1990-01-01', ?, 1, 1, 1, datetime('now'))"
     )->execute([
         $adminEmail,
         $defaultHash,

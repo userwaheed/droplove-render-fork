@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("
                 UPDATE users SET username=?, first_name=?, last_name=?, gender=?, category=?, orientation=?,
                        birth_date=?, city=?, country=?, zip=?, bio=?, interests=?, looking_for=?,
-                       body_type=?, height_cm=?, visibility=?, updated_at=NOW()
+                       body_type=?, height_cm=?, visibility=?, updated_at=datetime('now')
                 WHERE id=?")
             ->execute([
                 $username, $first_name, $last_name !== '' ? $last_name : null, $gender, $category,
@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = handle_image_upload($_FILES['avatar'] ?? [], 'avatar');
             if ($name) {
                 delete_upload($me['avatar']);
-                $pdo->prepare("UPDATE users SET avatar = ?, updated_at = NOW() WHERE id = ?")
+                $pdo->prepare("UPDATE users SET avatar = ?, updated_at = datetime('now') WHERE id = ?")
                     ->execute([$name, $me['id']]);
                 unset($_SESSION['user']);
                 flash('success', 'Profile photo updated.');
@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = handle_image_upload($_FILES['cover'] ?? [], 'cover');
             if ($name) {
                 delete_upload($me['cover']);
-                $pdo->prepare("UPDATE users SET cover = ?, updated_at = NOW() WHERE id = ?")
+                $pdo->prepare("UPDATE users SET cover = ?, updated_at = datetime('now') WHERE id = ?")
                     ->execute([$name, $me['id']]);
                 unset($_SESSION['user']);
                 flash('success', 'Cover photo updated.');

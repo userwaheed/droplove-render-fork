@@ -129,7 +129,11 @@ function current_user(): ?array
         $_SESSION['user'] = $u;
     }
 
-    $stmt = db()->prepare("UPDATE users SET online_last = NOW() WHERE id = ?");
+    if (is_postgres()) {
+        $stmt = db()->prepare("UPDATE users SET online_last = datetime('now') WHERE id = ?");
+    } else {
+        $stmt = db()->prepare("UPDATE users SET online_last = datetime('now') WHERE id = ?");
+    }
     $stmt->execute([$u['id']]);
     return $u;
 }
@@ -199,7 +203,7 @@ function record_attempt(string $identifier, bool $success): void
     $pdo = db();
     // Periodically purge old login_attempts to prevent unbounded table growth.
     if (is_postgres()) {
-        $pdo->exec("DELETE FROM login_attempts WHERE created_at < NOW() - INTERVAL '90 days'");
+        $pdo->exec("DELETE FROM login_attempts WHERE created_at < datetime('now', '-90 days')");
     } else {
         $pdo->exec("DELETE FROM login_attempts WHERE created_at < datetime('now','-90 days')");
     }

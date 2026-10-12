@@ -24,6 +24,12 @@ function db(): PDO {
     return $pdo;
 }
 function is_postgres(): bool { return str_starts_with(DB_DSN,'postgresql://'); }
+
+/** Returns the correct SQL date expression for the current DB. */
+function now_sql(): string {
+    return is_postgres() ? 'NOW()' : "datetime('now')";
+}
+
 function schema_init(PDO $pdo): void { if(is_postgres()) schema_init_pg($pdo); else schema_init_sqlite($pdo); }
 
 function schema_init_pg(PDO $pdo): void {

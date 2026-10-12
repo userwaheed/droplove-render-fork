@@ -88,12 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $me) {
         }
     } elseif ($action === 'activate') {
         if ($me['id'] === $user['id']) {
-            $pdo->prepare("UPDATE users SET is_active = 1, updated_at = NOW() WHERE id = ?")
+            $pdo->prepare("UPDATE users SET is_active = 1, updated_at = datetime('now') WHERE id = ?")
                 ->execute([$me['id']]);
             flash('success', 'Your profile is now live in discover.');
         }
     } elseif ($action === 'deactivate') {
-        $pdo->prepare("UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = ?")
+        $pdo->prepare("UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?")
             ->execute([$me['id']]);
         flash('info', 'Your profile is hidden from discover. You can reactivate anytime.');
     }
