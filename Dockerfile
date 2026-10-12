@@ -5,9 +5,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-dev \
     libssl-dev \
     ca-certificates \
-    postgresql-client \
+    libpng-dev \
+    libjpeg-dev \
+    libwebp-dev \
+    libgif-dev \
     && update-ca-certificates \
     && docker-php-ext-install pdo pdo_pgsql pdo_sqlite \
+    && docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /usr/local/ssl && printf 'openssl_conf = openssl_init\n\n[openssl_init]\nssl_conf = ssl_sect\n\n[ssl_sect]\nsystem_default = system_default_sect\n\n[system_default_sect]\nMinProtocol = TLSv1\nCipherString = DEFAULT:@SECLEVEL=0\n' > /usr/local/ssl/openssl.cnf
