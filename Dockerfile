@@ -49,7 +49,7 @@ RUN mkdir -p /var/www/html/data/uploads \
     && chmod -R 775 /var/www/html/data
 
 # Global PHP settings
-RUN printf "display_errors = Off\nlog_errors = On\nerror_log = /var/www/html/data/php_errors.log\nupload_max_filesize = 20M\npost_max_size = 25M\nmax_execution_time = 60\nmemory_limit = 256M\n" \
+RUN printf "display_errors = Off\nlog_errors = On\nerror_log = /var/www/html/data/php_errors.log\nupload_max_filesize = 20M\npost_max_size = 25M\nmax_execution_time = 60\nmemory_limit = 256M\nopenssl.cafile=/etc/ssl/certs/ca-certificates.crt\n" \
     > /usr/local/etc/php/conf.d/app.ini
 
 # Apache: allow .htaccess overrides at the docroot
