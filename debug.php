@@ -1,16 +1,15 @@
 <?php
 /**
- * Debug page — shows PHP errors, SSL status, and database connection diagnostics.
+ * Debug page — database connection diagnostics.
  */
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
 require_once __DIR__ . '/config.php';
 
-// Show PHP SSL support
-echo "OpenSSL loaded: " . (extension_loaded('openssl') ? 'YES' : 'NO') . "\n";
 echo "pdo_pgsql loaded: " . (extension_loaded('pdo_pgsql') ? 'YES' : 'NO') . "\n";
-echo "PDO PGSQL SSL support (attr): " . (defined('PDO::PGSQL_ATTR_SSL_MODE') ? 'YES' : 'NO') . "\n";
+echo "ssl: " . (extension_loaded('openssl') ? 'YES' : 'NO') . "\n";
+echo "PDO drivers: " . implode(", ", PDO::getAvailableDrivers()) . "\n";
 
 // Show DB_DSN info (without password)
 $dsn_display = DB_DSN;
@@ -18,50 +17,32 @@ if (str_starts_with(DB_DSN, 'postgresql://')) {
     $dsn_display = preg_replace('/:\/\/([^:]+):([^@]+)@/', '://$1:***@', $dsn_display);
 }
 echo "DSN (masked): " . htmlspecialchars($dsn_display) . "\n";
-echo "is_postgres: " . (str_starts_with(DB_DSN, 'postgresql://') ? 'true' : 'false') . "\n";
 
-// Try pg_connect directly with URI (libpq supports postgresql:// URIs)
-echo "\nTrying pg_connect with URI...\n";
-$conn = @pg_connect(DB_DSN);
-if ($conn) {
-    echo "pg_connect: SUCCESS\n";
-    echo "Server version: " . pg_options($conn) . "\n";
-    pg_close($conn);
-} else {
-    $err = error_get_last();
-    echo "pg_connect error: " . ($err ? $err['message'] : 'no error') . "\n";
-}
-
-// Show the actual DSN we'd build for PDO
+// Parse and show PDO DSN
 $url = DB_DSN;
 $url = preg_replace('/\?.*$/', '', $url);
 $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
 if (preg_match($pattern, $url, $m)) {
-    $pdo_dsn = "pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=***;sslmode=require";
-    echo "PDO DSN (masked): " . $pdo_dsn . "\n";
+    echo "Parsed: host=" . $m[3] . " port=" . $m[4] . " db=" . $m[5] . " user=" . $m[1] . "\n";
     
-    // Try without password to see if it's a connection issue or auth issue
-    echo "\nTrying PDO without SSL...\n";
-    try {
-        $dsn_nossl = "pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=" . $m[2] . ";sslmode=prefer";
-        $pdo_test = new PDO($dsn_nossl);
-        echo "PDO (sslmode=prefer): SUCCESS\n";
-    } catch (Throwable $e) {
-        echo "PDO (sslmode=prefer): " . $e->getMessage() . "\n";
-    }
+    // Try with PGCONNECT env var
+    putenv('PGCONNECT=sslmode=require');
     
-    // Try with sslmode=allow
-    echo "\nTrying PDO with sslmode=allow...\n";
+    echo "\nTrying PDO connection...\n";
     try {
-        $dsn_allow = "pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=" . $m[2] . ";sslmode=allow";
-        $pdo_test2 = new PDO($dsn_allow);
-        echo "PDO (sslmode=allow): SUCCESS\n";
+        $opt = [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC];
+        $dsn = "pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=" . $m[2];
+        $pdo = new PDO($dsn, null, null, $opt);
+        echo "PDO: SUCCESS\n";
+        
+        // Try a query
+        $count = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+        echo "Users count: " . $count . "\n";
     } catch (Throwable $e) {
-        echo "PDO (sslmode=allow): " . $e->getMessage() . "\n";
+        echo "PDO error: " . $e->getMessage() . "\n";
     }
 } else {
     echo "Regex did not match!\n";
 }
 
-echo "\n---\n";
-echo "PDO available drivers: " . implode(", ", PDO::getAvailableDrivers()) . "\n";
+echo "\n---\nDone.\n";
