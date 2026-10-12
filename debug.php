@@ -9,56 +9,64 @@ echo "OpenSSL: " . (extension_loaded('openssl') ? 'YES' : 'NO') . "\n";
 echo "PGSSLMODE env: " . getenv('PGSSLMODE') . "\n";
 echo "PDO drivers: " . implode(", ", PDO::getAvailableDrivers()) . "\n";
 
-// Try pg_connect with the URI (libpq handles SSL natively)
-echo "\nTest 1: pg_connect with postgresql:// URI + PGSSLMODE=require\n";
-putenv('PGSSLMODE=require');
-$conn = @pg_connect(DB_DSN);
-if ($conn) {
-    echo "SUCCESS\n";
-    $result = pg_query($conn, "SELECT COUNT(*) as c FROM users");
-    $row = pg_fetch_assoc($result);
-    echo "Users: " . $row['c'] . "\n";
-    pg_close($conn);
-} else {
-    echo "pg_connect FAILED\n";
-}
-
-// Try pg_connect with conninfo string
-echo "\nTest 2: pg_connect with conninfo string\n";
+// Parse the DSN
 $url = preg_replace('/\?.*$/', '', DB_DSN);
 $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
 preg_match($pattern, $url, $m);
-$conninfo = sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=require",
-    $m[3], $m[4], $m[5], $m[1], $m[2]);
-$conn2 = @pg_connect($conninfo);
+$host = $m[3]; $port = $m[4]; $db = $m[5]; $user = $m[1]; $pass = $m[2];
+
+// Test pg_connect with error display ON
+echo "\nTest 1: pg_connect with URI (PGSSLMODE=require)\n";
+putenv('PGSSLMODE=require');
+set_error_handler(function($errno, $errstr) { echo "  PHP warning: $errstr\n"; });
+$conn = pg_connect(DB_DSN);
+restore_error_handler();
+if ($conn) {
+    echo "  SUCCESS\n";
+    pg_close($conn);
+} else {
+    echo "  FAILED\n";
+}
+
+// Test pg_connect with conninfo and sslmode=require
+echo "\nTest 2: pg_connect with conninfo sslmode=require\n";
+$conninfo = "host=$host port=$port dbname=$db user=$user password=$pass sslmode=require";
+$conn2 = pg_connect($conninfo);
 if ($conn2) {
-    echo "SUCCESS\n";
+    echo "  SUCCESS\n";
     pg_close($conn2);
 } else {
-    echo "pg_connect conninfo FAILED\n";
+    echo "  FAILED\n";
+}
+
+// Test pg_connect with sslmode=prefer
+echo "\nTest 3: pg_connect with conninfo sslmode=prefer\n";
+$conninfo3 = "host=$host port=$port dbname=$db user=$user password=$pass sslmode=prefer";
+$conn3 = pg_connect($conninfo3);
+if ($conn3) {
+    echo "  SUCCESS\n";
+    pg_close($conn3);
+} else {
+    echo "  FAILED\n";
+}
+
+// Test pg_connect with sslmode=disable
+echo "\nTest 4: pg_connect with conninfo sslmode=disable\n";
+$conninfo4 = "host=$host port=$port dbname=$db user=$user password=$pass sslmode=disable";
+$conn4 = pg_connect($conninfo4);
+if ($conn4) {
+    echo "  SUCCESS (non-SSL works!)\n";
+    pg_close($conn4);
+} else {
+    echo "  FAILED\n";
 }
 
 // Test PDO
-echo "\nTest 3: PDO with pgsql: DSN\n";
+echo "\nTest 5: PDO with DSN (no sslmode)\n";
 try {
-    $dsn = sprintf("pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s", $m[3], $m[4], $m[5], $m[1], $m[2]);
-    $opt = [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION];
-    $pdo = new PDO($dsn, null, null, $opt);
-    echo "SUCCESS\n";
-    $count = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-    echo "Users: $count\n";
+    $dsn = "pgsql:host=$host;port=$port;dbname=$db;user=$user;password=$pass";
+    $pdo = new PDO($dsn, null, null, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    echo "  SUCCESS\n";
 } catch (Throwable $e) {
-    echo "FAIL: " . $e->getMessage() . "\n";
-}
-
-// Test PDO using db() function
-echo "\nTest 4: db() function\n";
-require_once __DIR__ . '/db.php';
-try {
-    $pdo = db();
-    echo "db() SUCCESS\n";
-    $count = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-    echo "Users: $count\n";
-} catch (Throwable $e) {
-    echo "db() FAIL: " . $e->getMessage() . "\n";
+    echo "  FAIL: " . $e->getMessage() . "\n";
 }
