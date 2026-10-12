@@ -141,3 +141,4 @@ function schema_migrate(PDO $pdo): void {
         $pdo->exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
     } catch (Throwable) {}
 }
+
