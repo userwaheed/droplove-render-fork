@@ -19,7 +19,6 @@ $L_HOST = '127.0.0.1';
 $L_PORT = (int)(getenv('PG_TUNNEL_PORT') ?: 5433);
 
 error_reporting(E_ALL);
-ini_set("display_errors", "1");
 ini_set('error_log', '/var/www/html/data/tunnel.log');
 ini_set("memory_limit", "64M");
 echo "PG SSL Tunnel: {$L_HOST}:{$L_PORT} -> {$PG_HOST}:{$PG_PORT}\n";
@@ -45,11 +44,11 @@ while (true) {
         $pid = pcntl_fork();
         if ($pid == -1) {
             error_log("Tunnel: fork failed");
-            @if (is_resource($client)) @fclose($client);
+            if (is_resource($client)) @fclose($client);
         } elseif ($pid > 0) {
-            @if (is_resource($client)) @fclose($client);
+            if (is_resource($client)) @fclose($client);
         } else {
-            @if (is_resource($server)) @fclose($server);
+            if (is_resource($server)) @fclose($server);
             $r = handleClient($client, $PG_HOST, $PG_PORT);
             error_log("Tunnel: client handled, result=" . $r);
             exit(0);
@@ -96,7 +95,7 @@ function handleClient($client, $host, $port) {
     if (!$server) {
         error_log("Tunnel: PG connect failed: $errstr ($errno)");
         fwrite($client, "N");
-        @if (is_resource($client)) @fclose($client);
+        if (is_resource($client)) @fclose($client);
         return "pg_connect_failed";
     }
     stream_set_blocking($server, true);
@@ -105,8 +104,8 @@ function handleClient($client, $host, $port) {
     $client_data = readPacket($client);
     if ($client_data === false) {
         error_log("Tunnel: client disconnected before sending data");
-        @if (is_resource($server)) @fclose($server);
-        @if (is_resource($client)) @fclose($client);
+        if (is_resource($server)) @fclose($server);
+        if (is_resource($client)) @fclose($client);
         return "client_disconnected";
     }
 
@@ -122,8 +121,8 @@ function handleClient($client, $host, $port) {
         $startup = readPacket($client);
         if ($startup === false) {
             error_log("Tunnel: client disconnected after N");
-            @if (is_resource($server)) @fclose($server);
-            @if (is_resource($client)) @fclose($client);
+            if (is_resource($server)) @fclose($server);
+            if (is_resource($client)) @fclose($client);
             return "client_disconnected_after_n";
         }
         
@@ -140,8 +139,8 @@ function handleClient($client, $host, $port) {
             } else {
                 error_log("Tunnel: PG server TLS upgrade FAILED: " . json_encode(error_get_last()));
                 fwrite($client, "N");
-                @if (is_resource($server)) @fclose($server);
-                @if (is_resource($client)) @fclose($client);
+                if (is_resource($server)) @fclose($server);
+                if (is_resource($client)) @fclose($client);
                 return "tls_failed";
             }
         }
@@ -169,8 +168,8 @@ function handleClient($client, $host, $port) {
         proxyData($client, $server);
     }
 
-    @if (is_resource($server)) @fclose($server);
-    @if (is_resource($client)) @fclose($client);
+    if (is_resource($server)) @fclose($server);
+    if (is_resource($client)) @fclose($client);
     error_log("Tunnel: client handled and disconnected");
     return "ok";
 }
