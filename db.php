@@ -12,57 +12,10 @@ function db(): PDO {
             $url = preg_replace('/\?.*$/', '', $url);
             $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
             preg_match($pattern, $url, $m);
-            if (getenv('PG_USE_TUNNEL') === '1') {
-                // Start tunnel in background if not already running
-                $tunnel_port = (int)(getenv('PG_TUNNEL_PORT') ?: '5433');
-                $tunnel_cmd = "php " . __DIR__ . "/pg_tunnel.php";
-                $pid_file = __DIR__ . "/data/tunnel.pid";
-                $log_file = __DIR__ . "/data/tunnel.log";
-                // Check if tunnel is already listening
-                $fp = @fsockopen("127.0.0.1", $tunnel_port, $errno, $errstr, 2);
-                if (!$fp) {
-                    // Not listening — start it
-                    if (!file_exists($pid_file) || !file_get_contents($pid_file)) {
-                        // Check if old PID is still running
-                        if (file_exists($pid_file)) {
-                            $old_pid = (int)file_get_contents($pid_file);
-                            if ($old_pid > 0) {
-                                @fsockopen("127.0.0.1", $tunnel_port, $errno2, $errstr2, 1);
-                            }
-                        }
-                    }
-                    // Use proc_open to start tunnel in background
-                    $log_fp = @fopen($log_file, 'a');
-                    $descriptors = [
-                        0 => ['pipe', 'r'],
-                        1 => ['file', $log_file, 'a'],
-                        2 => ['file', $log_file, 'a']
-                    ];
-                    $proc = proc_open($tunnel_cmd, $descriptors, $pipes, __DIR__);
-                    if (is_resource($proc)) {
-                        $tunnel_pid = proc_get_status($proc)['pid'] ?? 0;
-                        file_put_contents($pid_file, (string)$tunnel_pid);
-                        proc_close($proc);
-                        // Wait for tunnel to start
-                        for ($i = 0; $i < 15; $i++) {
-                            usleep(500000);
-                            $fp = @fsockopen("127.0.0.1", $tunnel_port, $errno, $errstr, 1);
-                            if ($fp) break;
-                        }
-                    } else {
-                        error_log("Failed to start pg_tunnel.php via proc_open");
-                    }
-                } else {
-                    fclose($fp);
-                }
-                putenv('PGSSLMODE=prefer');
-                $dsn = sprintf('pgsql:host=127.0.0.1;port=%d;dbname=%s;user=%s;password=%s',
-                    $tunnel_port, $m[5], $m[1], $m[2]);
-            } else {
-                $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
-                    $m[3], $m[4], $m[5], $m[1], $m[2]);
-                putenv('PGSSLMODE=require');
-            }
+            // Always connect directly to PostgreSQL (PHP 8.2 + OpenSSL 3.0.x handles TLS natively)
+            $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
+                $m[3], $m[4], $m[5], $m[1], $m[2]);
+            putenv('PGSSLMODE=require');
             $pdo = new PDO($dsn, null, null, $opt);
             $pdo->exec("SET client_encoding = 'UTF8'");
         } else {
