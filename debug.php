@@ -6,55 +6,62 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/db.php';
 
 // Show PHP SSL support
 echo "OpenSSL loaded: " . (extension_loaded('openssl') ? 'YES' : 'NO') . "\n";
-echo "PostgreSQL libpq version: " . pg_libversion() . "\n";
-echo "PDO PGSQL SSL support: " . (defined('PDO::PGSQL_ATTR_SSL_MODE') ? 'YES' : 'NO') . "\n";
-echo "SSL method: " . (function_exists('openssl_get_ssl_constant_string') ? 'available' : 'not available') . "\n";
+echo "pdo_pgsql loaded: " . (extension_loaded('pdo_pgsql') ? 'YES' : 'NO') . "\n";
+echo "PDO PGSQL SSL support (attr): " . (defined('PDO::PGSQL_ATTR_SSL_MODE') ? 'YES' : 'NO') . "\n";
 
 // Show DB_DSN info (without password)
 $dsn_display = DB_DSN;
-if (is_postgres()) {
+if (str_starts_with(DB_DSN, 'postgresql://')) {
     $dsn_display = preg_replace('/:\/\/([^:]+):([^@]+)@/', '://$1:***@', $dsn_display);
 }
 echo "DSN (masked): " . htmlspecialchars($dsn_display) . "\n";
-echo "DB Storage: " . DB_STORAGE . "\n";
-echo "LIKE_OP: " . LIKE_OP . "\n";
-echo "is_postgres: " . (is_postgres() ? 'true' : 'false') . "\n";
+echo "is_postgres: " . (str_starts_with(DB_DSN, 'postgresql://') ? 'true' : 'false') . "\n";
 
-// Try a direct pg_connect test
-if (is_postgres()) {
-    echo "\nTrying pg_connect with postgresql:// URI...\n";
-    $conn = @pg_connect(DB_DSN);
-    if ($conn) {
-        echo "pg_connect: SUCCESS\n";
-        pg_close($conn);
-    } else {
-        $err = pg_last_error();
-        echo "pg_connect: FAILED - " . ($err ? $err : 'no error message') . "\n";
+// Try pg_connect directly with URI (libpq supports postgresql:// URIs)
+echo "\nTrying pg_connect with URI...\n";
+$conn = @pg_connect(DB_DSN);
+if ($conn) {
+    echo "pg_connect: SUCCESS\n";
+    echo "Server version: " . pg_options($conn) . "\n";
+    pg_close($conn);
+} else {
+    $err = error_get_last();
+    echo "pg_connect error: " . ($err ? $err['message'] : 'no error') . "\n";
+}
+
+// Show the actual DSN we'd build for PDO
+$url = DB_DSN;
+$url = preg_replace('/\?.*$/', '', $url);
+$pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
+if (preg_match($pattern, $url, $m)) {
+    $pdo_dsn = "pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=***;sslmode=require";
+    echo "PDO DSN (masked): " . $pdo_dsn . "\n";
+    
+    // Try without password to see if it's a connection issue or auth issue
+    echo "\nTrying PDO without SSL...\n";
+    try {
+        $dsn_nossl = "pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=" . $m[2] . ";sslmode=prefer";
+        $pdo_test = new PDO($dsn_nossl);
+        echo "PDO (sslmode=prefer): SUCCESS\n";
+    } catch (Throwable $e) {
+        echo "PDO (sslmode=prefer): " . $e->getMessage() . "\n";
     }
     
-    // Show the actual DSN we're building
-    $url = DB_DSN;
-    $url = preg_replace('/\?.*$/', '', $url);
-    $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
-    if (preg_match($pattern, $url, $m)) {
-        echo "Parsed DSN: pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=***;sslmode=require\n";
-    } else {
-        echo "Regex did not match!\n";
+    // Try with sslmode=allow
+    echo "\nTrying PDO with sslmode=allow...\n";
+    try {
+        $dsn_allow = "pgsql:host=" . $m[3] . ";port=" . $m[4] . ";dbname=" . $m[5] . ";user=" . $m[1] . ";password=" . $m[2] . ";sslmode=allow";
+        $pdo_test2 = new PDO($dsn_allow);
+        echo "PDO (sslmode=allow): SUCCESS\n";
+    } catch (Throwable $e) {
+        echo "PDO (sslmode=allow): " . $e->getMessage() . "\n";
     }
+} else {
+    echo "Regex did not match!\n";
 }
 
-// Try db() connection
-echo "\nTrying PDO connection...\n";
-try {
-    $pdo = db();
-    $count = (int)$pdo->query('SELECT COUNT(*) FROM users WHERE is_active = 1 AND banned = 0')->fetchColumn();
-    echo "Users count: " . $count . "\n";
-} catch (Throwable $e) {
-    echo "PDO error: " . $e->getMessage() . "\n";
-}
-
-echo "\nDone.\n";
+echo "\n---\n";
+echo "PDO available drivers: " . implode(", ", PDO::getAvailableDrivers()) . "\n";
