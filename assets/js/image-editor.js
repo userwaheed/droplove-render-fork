@@ -21,6 +21,7 @@
     dragging: false,
     dragStart: null,
     filter: 'none',
+    filterId: 'none',
     filters: [
       { id: 'none', label: 'Original', css: 'none' },
       { id: 'grayscale', label: 'Grayscale', css: 'grayscale(100%)' },
@@ -40,7 +41,10 @@
     container: null,
     canvas: null,
     ctx: null,
-    modal: null
+    modal: null,
+    action: 'avatar',
+    photoId: 0,
+    originalSrc: ''
   };
 
   /* ---- Init triggers ---- */
@@ -57,13 +61,17 @@
           if (img) src = img.src;
         }
       }
-      if (src) openEditor(src, alt);
+      if (src) openEditor(src, alt, btn);
     });
   });
 
   /* ---- Open editor ---- */
-  function openEditor(src, alt) {
+  function openEditor(src, alt, btn) {
     closeModal(); // clean up any existing
+
+    // Resolve action + photo_id from the button
+    var action = btn ? (btn.getAttribute('data-action') || 'avatar') : 'avatar';
+    var photoId = btn ? (parseInt(btn.getAttribute('data-photo-id') || '0', 10)) : 0;
 
     var img = new Image();
     img.crossOrigin = 'anonymous';
@@ -73,6 +81,10 @@
       state.panX = 0;
       state.panY = 0;
       state.filter = 'none';
+      state.filterId = 'none';
+      state.action = action;
+      state.photoId = photoId;
+      state.originalSrc = src;
       buildModal();
       render();
       bindEvents();
@@ -229,6 +241,7 @@
         var filter = state.filters.find(function (f) { return f.id === filterId; });
         if (filter) {
           state.filter = filter.css;
+          state.filterId = filter.id;
           // Update active state
           state.modal.querySelectorAll('.img-filter-btn').forEach(function (b) {
             b.classList.remove('active');
@@ -303,12 +316,94 @@
     window.addEventListener('resize', render);
   }
 
-  /* ---- Apply filter (just close for now, visual only) ---- */
+  /* ---- Apply filter: bake it into the image and save to the server ---- */
   function applyFilter() {
-    // For now, the filter is visual only. In the future, we can add
-    // server-side filter application via GD/Imagick.
-    vkmToast('Filter applied: ' + state.filter, 'ok');
-    closeModal();
+    if (!state.img) return;
+
+    // If no filter is selected, nothing to bake — just close.
+    if (state.filterId === 'none' || state.filter === 'none') {
+      closeModal();
+      return;
+    }
+
+    var applyBtn = state.modal.querySelector('[data-action="apply"]');
+    if (applyBtn) {
+      applyBtn.disabled = true;
+      applyBtn.textContent = 'Saving…';
+    }
+
+    // Render the filter onto a full-resolution canvas (not the zoomed view).
+    var img = state.img;
+    var out = doc.createElement('canvas');
+    out.width = img.naturalWidth;
+    out.height = img.naturalHeight;
+    var c = out.getContext('2d');
+    try {
+      c.filter = state.filter;
+      c.drawImage(img, 0, 0, out.width, out.height);
+      c.filter = 'none';
+    } catch (err) {
+      // Tainted canvas (cross-origin) — can't export. Fall back to visual only.
+      if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply'; }
+      vkmToast('Filter applied (preview only)', 'ok');
+      closeModal();
+      return;
+    }
+
+    // Export as JPEG (avoids alpha). Fall back to PNG if canvas is empty.
+    var dataUrl;
+    try {
+      dataUrl = out.toDataURL('image/jpeg', 0.92);
+      if (!dataUrl || dataUrl.indexOf('data:image') !== 0) {
+        dataUrl = out.toDataURL('image/png');
+      }
+    } catch (err) {
+      // Canvas tainted — abort save.
+      if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply'; }
+      vkmToast('Could not save (image is restricted)', 'err');
+      return;
+    }
+
+    // Get CSRF from the meta tag.
+    var csrfMeta = doc.querySelector('meta[name="csrf-token"]');
+    var csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+    var fd = new FormData();
+    fd.append('csrf', csrf);
+    fd.append('action', state.action);
+    fd.append('image', dataUrl);
+    if (state.photoId > 0) fd.append('photo_id', String(state.photoId));
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/save_edit.php', true);
+    xhr.onload = function () {
+      try {
+        var res = JSON.parse(xhr.responseText || '{}');
+        if (res.ok) {
+          // Bust the browser cache on the original image.
+          var sep = state.originalSrc.indexOf('?') === -1 ? '?' : '&';
+          state.originalSrc += sep + 'v=' + Date.now();
+          $all('img').forEach(function (i) {
+            if (i.getAttribute('src') && i.getAttribute('src').indexOf('avatar_') !== -1) {
+              i.src = i.getAttribute('src').split('?')[0] + sep + 'v=' + Date.now();
+            }
+          });
+          vkmToast('Photo saved', 'ok');
+          closeModal();
+        } else {
+          if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply'; }
+          vkmToast(res.error || 'Save failed', 'err');
+        }
+      } catch (e) {
+        if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply'; }
+        vkmToast('Save failed', 'err');
+      }
+    };
+    xhr.onerror = function () {
+      if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply'; }
+      vkmToast('Network error', 'err');
+    };
+    xhr.send(fd);
   }
 
   /* ---- Close modal ---- */

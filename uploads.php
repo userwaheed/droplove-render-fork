@@ -7,6 +7,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 
+// CORS for the client-side image editor (canvas crossOrigin=anonymous).
+// Filenames are random hashes, so this does not expose private data.
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, HEAD, OPTIONS');
+header('Access-Control-Allow-Headers: *');
+header('Access-Control-Max-Age: 86400');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+
 $file = basename($_GET['file'] ?? '');
 $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));

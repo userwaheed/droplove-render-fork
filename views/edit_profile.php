@@ -154,7 +154,7 @@ require __DIR__ . '/_layout_top.php';
           <div style="display:flex;gap:1.2rem;align-items:center;margin-bottom:1rem">
             <div class="edit-img-wrap">
               <img class="avatar xl" src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" alt="Your photo" data-fb>
-              <button class="img-edit-btn" type="button" data-img-edit data-img-src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" data-img-alt="Profile photo" aria-label="Edit photo">
+              <button class="img-edit-btn" type="button" data-img-edit data-action="avatar" data-img-src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" data-img-alt="Profile photo" aria-label="Edit photo">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
               </button>
             </div>
@@ -210,6 +210,9 @@ require __DIR__ . '/_layout_top.php';
             <?php foreach ($myPhotos as $ph): ?>
               <div style="position:relative">
                 <img src="<?= e(avatar_url($ph['photo'], null)) ?>" data-full="<?= e(avatar_url($ph['photo'], null)) ?>" alt="Your photo" data-fb loading="lazy">
+                <button class="img-edit-btn" type="button" data-img-edit data-action="photo" data-photo-id="<?= (int)$ph['id'] ?>" data-img-src="<?= e(avatar_url($ph['photo'], null)) ?>" data-img-alt="Gallery photo" aria-label="Edit photo" style="top:.3rem;right:auto;left:.3rem;width:28px;height:28px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </button>
                 <form method="post" action="/edit_profile.php"
                       onsubmit="return confirm('Remove this photo?')"
                       style="position:absolute;top:.3rem;right:.3rem;margin:0">
