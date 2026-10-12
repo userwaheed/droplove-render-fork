@@ -7,8 +7,8 @@ FROM php:8.3-apache
 # pkg-config is needed so configure can locate the codec libs.
 # Do NOT add --with-freetype — freetype2-dev fails on Debian.
 #
-# Render PostgreSQL requires SSL. The Sury PHP repo provides php8.3-pgsql
-# with proper libpq/OpenSSL linkage for working SSL connections.
+# We add libssl-dev to ensure PHP/pdo_pgsql can link against OpenSSL
+# for SSL connections to PostgreSQL (required by Render).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libicu-dev \
@@ -16,18 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libssl-dev \
     ca-certificates \
-    lsb-release \
-    gnupg \
-    curl \
     libpng-dev \
     libjpeg-dev \
     libwebp-dev \
     libgif-dev \
-    && echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/sury-php.list \
-    && curl -sSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/sury-php.gpg \
-    && apt-get update && apt-get install -y --no-install-recommends php8.3-pgsql \
-    && docker-php-ext-install pdo pdo_sqlite intl mysqli \
-    && docker-php-ext-enable pdo pdo_sqlite intl mysqli \
+    && docker-php-ext-install pdo pdo_pgsql pdo_sqlite intl mysqli \
+    && docker-php-ext-enable pdo pdo_pgsql pdo_sqlite intl mysqli \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install gd \
     && php -r 'echo "JPEG: ", (int)function_exists("imagecreatefromjpeg"), " WebP: ", (int)function_exists("imagecreatefromwebp"), " PG: ", (int)extension_loaded("pdo_pgsql"), "\n"; exit(function_exists("imagecreatefromjpeg") && extension_loaded("pdo_pgsql") ? 0 : 1);' \
