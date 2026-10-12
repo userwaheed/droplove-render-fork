@@ -1,4 +1,4 @@
-FROM php:8.3-apache
+FROM php:8.2-apache-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
@@ -29,9 +29,5 @@ RUN printf 'display_errors = On\nlog_errors = On\nerror_log = /var/www/html/data
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 EXPOSE 80
-
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 CMD ["apache2-foreground"]
