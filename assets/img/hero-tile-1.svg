@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800" role="img" aria-label="Abstract gradient artwork">
+  <defs>
+    <linearGradient id="t1bg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#2b1120"/>
+      <stop offset="1" stop-color="#150811"/>
+    </linearGradient>
+    <radialGradient id="t1p" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff5fa2" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ff5fa2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="t1v" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#b14cff" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#b14cff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#t1bg)"/>
+  <circle cx="470" cy="150" r="300" fill="url(#t1p)"/>
+  <circle cx="90" cy="690" r="330" fill="url(#t1v)"/>
+  <path d="M300 470s-105-63-134-131c-19-46 12-80 51-80 27 0 45 16 55 34h56c10-18 28-34 55-34 39 0 70 34 51 80-29 68-134 131-134 131z"
+        fill="none" stroke="#ff6fb1" stroke-width="7" opacity="0.16"/>
+  <circle cx="150" cy="170" r="7" fill="#ff6fb1" opacity="0.45"/>
+  <circle cx="500" cy="600" r="5" fill="#b14cff" opacity="0.5"/>
+  <circle cx="520" cy="120" r="4" fill="#fce8f2" opacity="0.35"/>
+  <circle cx="90" cy="420" r="5" fill="#ff6fb1" opacity="0.35"/>
+</svg>

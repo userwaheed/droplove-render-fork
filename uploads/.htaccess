@@ -1,0 +1,12 @@
+# uploaded files must never be executable
+Options -Indexes -ExecCGI
+
+<FilesMatch "\.(?i:php|phtml|php3|php4|php5|phps|cgi|pl|py|sh|bash|asp|aspx|jsp)$">
+  RemoveHandler .php .php3 .php4 .php5 .phtml .phps .cgi .pl .py .sh .bash
+  RemoveType .php .php3 .php4 .php5 .phtml .phps .cgi .pl .py .sh .bash
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>

@@ -1,0 +1,73 @@
+# ============================================================
+#  DrofLove.com — .htaccess
+#  Apache 2.4. Works at domain root or inside a subdirectory.
+# ============================================================
+
+DirectoryIndex index.php
+Options -Indexes
+
+# ── Security headers ────────────────────────────────────────
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header set Cross-Origin-Embedder-Policy "require-corp"
+  Header set Cross-Origin-Opener-Policy "same-origin"
+  Header set Cross-Origin-Resource-Policy "same-origin"
+  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+</IfModule>
+
+# ── Force HTTPS (uncomment after Hostinger AutoSSL is on) ────
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteCond %{HTTPS} off
+#   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+# </IfModule>
+
+# ── Block sensitive files & internal folders ────────────────
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # deny access to PHP source that is not a public entry point
+  # (RewriteRule matches the path relative to this .htaccess dir, so this
+  #  works at domain root and inside /subdir/ installs alike)
+  RewriteRule ^(views|data|uploads)(/|$) - [R=404,L]
+  RewriteRule ^\.dev(/|$) - [R=404,L]
+
+  # block config/database/dotfiles from being requested directly
+  RewriteRule ^\. - [R=404,L]
+  RewriteRule (?:^|/)\.(?:git|gitignore|htaccess|env|ds_store)(?:/.*)?$ - [R=404,L]
+  RewriteRule (?:^|/)(?:config|db|helpers)\.php$ - [R=404,L]
+  RewriteRule (?:^|/)\.(?:ini|log|sql|sqlite|db|bak|cache)(?:$|/.*)$ - [R=404,L]
+</IfModule>
+
+# ── PHP hardening ───────────────────────────────────────────
+<IfModule mod_php.c>
+  php_flag display_errors Off
+  php_flag log_errors On
+  php_flag expose_php Off
+  php_value session.cookie_httponly 1
+  php_value session.cookie_samesite Lax
+  php_value session.use_strict_mode 1
+  php_value session.use_only_cookies 1
+  php_value post_max_size 20M
+  php_value upload_max_filesize 16M
+</IfModule>
+
+# ── Performance ─────────────────────────────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript image/svg+xml text/plain application/json
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/webp "access plus 30 days"
+  ExpiresByType image/gif "access plus 30 days"
+</IfModule>

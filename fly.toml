@@ -1,0 +1,42 @@
+# fly.toml app configuration file for droplove (DrofLove.com)
+#
+# See https://fly.io/docs/reference/configuration/ for details.
+
+app = 'droplove'
+primary_region = 'cdg'  # Paris — closest to target audience
+
+# ── Build ──────────────────────────────────────────────────────────────────
+[build]
+
+# ── HTTP Service ───────────────────────────────────────────────────────────
+[http_service]
+  internal_port = 80
+  forces_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  auto_stop_machines_delay = '30s'
+
+  [http_service.concurrency]
+    type = 'requests'
+    concurrency_soft_http_requests = 30
+    concurrency_hard_http_requests = 50
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '5s'
+    method = 'GET'
+    path = '/healthcheck.php'
+    status = 200
+
+# ── VM ─────────────────────────────────────────────────────────────────────
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'
+
+# ── Persistent Volume (single volume — Fly.io limit is 1 per machine) ──────
+# SQLite DB lives at /var/www/html/data/vk_match.db
+# Avatar uploads live at /var/www/html/data/uploads/ (see config.php UPLOAD_DIR)
+[[mounts]]
+  source = 'data'
+  destination = '/var/www/html/data'

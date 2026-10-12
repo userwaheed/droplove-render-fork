@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="DrofLove.com heart">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5fa2"/>
+      <stop offset="1" stop-color="#b14cff"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#241019"/>
+      <stop offset="1" stop-color="#14070f"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#bg)"/>
+  <rect x="2.5" y="2.5" width="115" height="115" rx="25.5" fill="none" stroke="url(#g)" stroke-width="2.5" opacity="0.6"/>
+  <path d="M60 92S28 74 20 52c-6-17 8-30 21-30 9 0 15 6 19 13h0c4-7 10-13 19-13 13 0 27 13 21 30-8 22-40 40-40 40z" fill="url(#g)"/>
+</svg>

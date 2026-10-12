@@ -1,0 +1,6 @@
+# Block all web access to the data directory.
+# This is a second layer of defense on top of the root .htaccess rule;
+# it protects the SQLite DB if the app is ever served by nginx,
+# LiteSpeed, or the PHP built-in server (where the root .htaccess
+# RewriteRule would not apply).
+Require all denied

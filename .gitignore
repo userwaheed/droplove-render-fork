@@ -1,0 +1,50 @@
+# Dev/test artifacts
+.dev/
+_site/
+_site_tmp/
+static-export/
+fly-deploy/
+
+# Temp/debug files
+_*.html
+_*.txt
+_*.md
+*.tmp
+*.err
+*.out
+$TMPDIR/
+render_out.html
+render_summary.txt
+t2.txt
+trace.txt
+demo.txt
+_demo*
+_active*
+_status*
+php4CB.tmp
+AUDIT-REPORT*
+COMBINED-REPORT*
+SECURITY-ASSESSMENT*
+UX-REVIEW*
+CHANGES-DESIGN*
+LANG_BUG_FIX*
+
+# Database (local dev only)
+data/vk_match.db
+data/used_keys.txt
+
+# Uploads (only keep .gitkeep and .htaccess)
+uploads/*.jpg
+uploads/*.png
+uploads/*.gif
+uploads/*.webp
+uploads/*.jpeg
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

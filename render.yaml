@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: droflove
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /healthcheck.php
+    autoDeploy: false
+    envVars:
+      - key: APP_NAME
+        value: DrofLove.com
+    databases:
+      - internalName: droflove-db
+        name: droflove-db
+        plan: free
+
+databases:
+  - name: droflove-db
+    plan: free
