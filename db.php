@@ -143,8 +143,22 @@ function schema_migrate(PDO $pdo): void {
     if (is_postgres()) return;
     try {
         $cols=$pdo->query('PRAGMA table_info(users)')->fetchAll();
-        foreach($cols as $c) if($c['name']==='verified') return;
-        $pdo->exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
+        foreach($cols as $c) if($c['name']==='verified') break;
+        else $pdo->exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
+    } catch (Throwable) {}
+    
+    // Ensure uploads table exists (for SQLite)
+    try {
+        $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('uploads', $tables)) {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS uploads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                filename TEXT NOT NULL UNIQUE, 
+                mime TEXT NOT NULL,
+                data BLOB NOT NULL, 
+                size INTEGER NOT NULL, 
+                created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+        }
     } catch (Throwable) {}
 }
 
