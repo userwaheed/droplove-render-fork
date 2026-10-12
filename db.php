@@ -16,15 +16,14 @@ function db(): PDO {
             // Match: postgresql://user:password@host:port/dbname
             $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
             if (preg_match($pattern, $url, $m)) {
-                $dsn = sprintf('pgsql:host=%s port=%s dbname=%s user=%s password=%s sslmode=require',
-                    $m[3], $m[4], $m[5], $m[1], $m[2]);
+                $dsn = "pgsql:host={$m[3]};port={$m[4]};dbname={$m[5]};user={$m[1]};password={$m[2]};sslmode=require";
             } else {
                 // Fallback: try parse_url (works for plain passwords)
                 $parts = parse_url($url);
-                $dsn = sprintf('pgsql:host=%s port=%s dbname=%s', $parts['host'], $parts['port'], ltrim($parts['path'],'/'));
-                if (isset($parts['user'])) $dsn .= " user={$parts['user']}";
-                if (isset($parts['pass'])) $dsn .= " password={$parts['pass']}";
-                $dsn .= ' sslmode=require';
+                $dsn = "pgsql:host={$parts['host']};port={$parts['port']};dbname=" . ltrim($parts['path'],'/');
+                if (isset($parts['user'])) $dsn .= ";user={$parts['user']}";
+                if (isset($parts['pass'])) $dsn .= ";password={$parts['pass']}";
+                $dsn .= ';sslmode=require';
             }
             $pdo = new PDO($dsn, null, null, $opt);
             $pdo->exec("SET client_encoding = 'UTF8'");
