@@ -1,9 +1,16 @@
+schemaVersion: 1
+regions:
+  - oregon
+databases:
+  - name: droflove-db
+    config:
+      plan: free
 services:
   - type: web
     name: droflove
     runtime: docker
-    dockerfilePath: ./Dockerfile
     plan: free
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /healthcheck.php
     autoDeploy: false
     envVars:
@@ -13,7 +20,3 @@ services:
       - internalName: droflove-db
         name: droflove-db
         plan: free
-
-databases:
-  - name: droflove-db
-    plan: free
