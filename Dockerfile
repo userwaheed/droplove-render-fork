@@ -8,6 +8,7 @@ FROM php:8.3-apache
 # Do NOT add --with-freetype — freetype2-dev fails on Debian.
 #
 # libssl-dev and ca-certificates ensure OpenSSL can do TLS handshakes.
+# postgresql-client gives us psql and libpq5 for SSL diagnostics.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libicu-dev \
@@ -17,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     openssl \
+    postgresql-client \
     libpng-dev \
     libjpeg-dev \
     libwebp-dev \
