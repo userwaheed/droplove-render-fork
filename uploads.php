@@ -5,7 +5,7 @@
  */
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/translations.php';
+require_once __DIR__ . '/db.php';
 
 $file = basename($_GET['file'] ?? '');
 $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
