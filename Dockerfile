@@ -24,7 +24,7 @@ RUN mkdir -p /var/www/html/data/uploads \
     && chown -R www-data:www-data /var/www/html/data \
     && chmod -R 775 /var/www/html/data
 
-RUN printf 'display_errors = stderr\nlog_errors = On\nerror_log = /var/www/html/data/php_errors.log\nupload_max_filesize = 20M\npost_max_size = 25M\nmax_execution_time = 60\nmemory_limit = 256M\nopenssl.cafile=/etc/ssl/certs/ca-certificates.crt\n' > /usr/local/etc/php/conf.d/app.ini
+RUN printf 'display_errors = On\nlog_errors = On\nerror_log = /var/www/html/data/php_errors.log\nupload_max_filesize = 20M\npost_max_size = 25M\nmax_execution_time = 60\nmemory_limit = 256M\nopenssl.cafile=/etc/ssl/certs/ca-certificates.crt\n' > /usr/local/etc/php/conf.d/app.ini
 
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
