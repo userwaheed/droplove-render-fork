@@ -71,6 +71,7 @@
 <button id="toTop" class="to-top" type="button" aria-label="Back to top">&uarr;</button>
 
 <script src="/assets/js/app.js?v=<?= e((string)filemtime(BASE_PATH . '/assets/js/app.js')) ?>" defer></script>
+<script src="/assets/js/image-editor.js?v=<?= e((string)filemtime(BASE_PATH . '/assets/js/image-editor.js')) ?>" defer></script>
 <script>
   document.documentElement.setAttribute('dir', '<?= $rtl ? 'rtl' : 'ltr' ?>');
 </script>

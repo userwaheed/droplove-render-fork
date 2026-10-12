@@ -497,3 +497,201 @@ textarea.input{min-height:120px;resize:vertical}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+/* ============================================================
+ Image Editor
+ ============================================================ */
+.img-editor-modal{
+position:fixed;
+inset:0;
+z-index:1000;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:1.5rem;
+opacity:0;
+transition:opacity .2s ease;
+}
+.img-editor-modal.open{opacity:1}
+.img-editor-backdrop{
+position:absolute;
+inset:0;
+background:rgba(10,3,8,.88);
+backdrop-filter:blur(8px);
+}
+.img-editor-panel{
+position:relative;
+z-index:1;
+width:100%;
+max-width:900px;
+max-height:90vh;
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:var(--r-lg);
+box-shadow:var(--sh-lg);
+display:flex;
+flex-direction:column;
+overflow:hidden;
+}
+.img-editor-header{
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:.9rem 1.2rem;
+border-bottom:1px solid var(--border);
+background:var(--surface-2);
+}
+.img-editor-header h3{
+margin:0;
+font-size:1.1rem;
+font-weight:600;
+color:var(--text);
+}
+.img-editor-close{
+background:none;
+border:none;
+color:var(--muted);
+font-size:1.3rem;
+cursor:pointer;
+padding:.2rem .5rem;
+border-radius:var(--r-sm);
+transition:all .15s;
+}
+.img-editor-close:hover{
+color:var(--danger);
+background:rgba(255,95,109,.1);
+}
+.img-editor-body{
+flex:1;
+display:flex;
+flex-direction:column;
+min-height:0;
+}
+.img-editor-viewport{
+flex:1;
+position:relative;
+background:#0a0308;
+overflow:hidden;
+cursor:grab;
+min-height:300px;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+.img-editor-viewport:active{cursor:grabbing}
+.img-editor-canvas{
+max-width:100%;
+max-height:100%;
+display:block;
+}
+.img-editor-controls{
+padding:.8rem 1.2rem;
+border-top:1px solid var(--border);
+background:var(--surface-2);
+display:flex;
+flex-direction:column;
+gap:.6rem;
+}
+.img-editor-zoom{
+display:flex;
+align-items:center;
+gap:.5rem;
+justify-content:center;
+}
+.img-btn{
+width:32px;
+height:32px;
+display:grid;
+place-items:center;
+background:var(--surface-3);
+border:1px solid var(--border);
+border-radius:var(--r-sm);
+color:var(--text);
+font-size:1.1rem;
+cursor:pointer;
+transition:all .15s;
+line-height:1;
+}
+.img-btn:hover{
+background:var(--pink);
+border-color:var(--pink);
+color:#fff;
+}
+.img-editor-zoom-val{
+min-width:48px;
+text-align:center;
+font-size:.85rem;
+color:var(--muted);
+font-variant-numeric:tabular-nums;
+}
+.img-editor-filters{
+display:flex;
+gap:.4rem;
+overflow-x:auto;
+padding-bottom:.3rem;
+scrollbar-width:thin;
+scrollbar-color:var(--border) transparent;
+}
+.img-editor-filters::-webkit-scrollbar{height:4px}
+.img-editor-filters::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.img-filter-btn{
+flex:0 0 auto;
+padding:.35rem .7rem;
+background:var(--surface-3);
+border:1px solid var(--border);
+border-radius:var(--r-pill);
+color:var(--muted);
+font-size:.78rem;
+cursor:pointer;
+transition:all .15s;
+white-space:nowrap;
+}
+.img-filter-btn:hover{
+background:rgba(255,77,157,.15);
+border-color:var(--pink);
+color:var(--text);
+}
+.img-filter-btn.active{
+background:var(--pink);
+border-color:var(--pink);
+color:#fff;
+}
+.img-editor-actions{
+display:flex;
+gap:.6rem;
+justify-content:flex-end;
+}
+
+/* Edit button overlay on photos */
+.edit-img-wrap{position:relative}
+.img-edit-btn{
+position:absolute;
+top:.4rem;
+right:.4rem;
+width:32px;
+height:32px;
+display:grid;
+place-items:center;
+background:rgba(0,0,0,.7);
+border:1px solid rgba(255,255,255,.15);
+border-radius:var(--r-sm);
+color:#fff;
+cursor:pointer;
+font-size:.8rem;
+transition:all .15s;
+z-index:2;
+}
+.img-edit-btn:hover{
+background:var(--pink);
+border-color:var(--pink);
+}
+.img-edit-btn svg{width:16px;height:16px}
+
+@media (max-width:640px){
+.img-editor-panel{max-height:95vh;border-radius:var(--r)}
+.img-editor-viewport{min-height:220px}
+.img-editor-controls{padding:.6rem .8rem}
+.img-editor-zoom-val{min-width:36px;font-size:.75rem}
+.img-filter-btn{padding:.3rem .5rem;font-size:.72rem}
+}
+

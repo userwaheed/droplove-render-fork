@@ -152,7 +152,12 @@ require __DIR__ . '/_layout_top.php';
         <div class="card card-pad">
           <h3>Profile photo</h3>
           <div style="display:flex;gap:1.2rem;align-items:center;margin-bottom:1rem">
-            <img class="avatar xl" src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" alt="Your photo" data-fb>
+            <div class="edit-img-wrap">
+              <img class="avatar xl" src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" alt="Your photo" data-fb>
+              <button class="img-edit-btn" type="button" data-img-edit data-img-src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" data-img-alt="Profile photo" aria-label="Edit photo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+            </div>
             <div>
               <p class="text-muted" style="margin:0 0 .6rem;font-size:.85rem">JPG, PNG, WebP or GIF · max <?= MAX_AVATAR_MB ?> MB</p>
               <form method="post" action="/edit_profile.php" enctype="multipart/form-data">
