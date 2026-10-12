@@ -36,6 +36,10 @@ echo shell_exec("OPENSSL_CONF=/usr/local/ssl/openssl.cnf psql \"host={$m[3]} por
 echo "\n-- openssl s_client test --\n";
 echo shell_exec("echo 'Q' | timeout 10 openssl s_client -connect {$m[3]}:{$m[4]} 2>&1 | head -20") . "\n";
 
+echo "\n-- openssl s_client -starttls postgres test --\n";
+putenv('PGPASSWORD=' . $m[2]);
+echo shell_exec("echo 'Q' | timeout 10 psql \"host={$m[3]} port={$m[4]} dbname={$m[5]} user={$m[1]} sslmode=require\" -c '\\q' 2>&1; echo '---'; echo 'Q' | timeout 10 openssl s_client -starttls postgres -connect {$m[3]}:{$m[4]} -debug 2>&1 | head -30") . "\n";
+
 echo "\n-- PHP stream_socket_enable_crypto test --\n";
 $fp = @fsockopen($m[3], (int)$m[4], $errno, $errstr, 10);
 if ($fp) {
