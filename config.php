@@ -22,8 +22,10 @@ define('UPLOAD_DIR', BASE_PATH . '/data/uploads/'); // legacy; unused when DB st
 // app uses PDO PostgreSQL and stores uploads in the `uploads` table instead
 // of on disk (Render free tier has no persistent volume).
 define('DB_DSN', 'sqlite:' . __DIR__ . '/data/vk_match.db'); // FORCED SQLite - database was deleted on Render
-define('DB_STORAGE', str_starts_with(DB_DSN, 'postgresql://') ? 'db' : 'file');
-define('LIKE_OP', str_starts_with(DB_DSN, 'postgresql://') ? 'ILIKE' : 'LIKE');
+// Render has ephemeral storage — files on disk are lost on restart.
+// Force database storage (SQLite BLOBs) so uploads persist.
+define('DB_STORAGE', 'db');
+define('LIKE_OP', 'LIKE');
 
 // ── Contact ──────────────────────────────────────────────────────────────
 define('CONTACT_EMAIL', 'powerplan786@gmail.com');
