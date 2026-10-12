@@ -21,7 +21,7 @@ define('UPLOAD_DIR', BASE_PATH . '/data/uploads/'); // legacy; unused when DB st
 // path for dev convenience. When the DSN starts with 'postgresql://', the
 // app uses PDO PostgreSQL and stores uploads in the `uploads` table instead
 // of on disk (Render free tier has no persistent volume).
-define('DB_DSN', getenv('DATABASE_URL') ?: getenv('DB_DSN') ?: 'sqlite:' . __DIR__ . '/data/vk_match.db');
+define('DB_DSN', 'sqlite:' . __DIR__ . '/data/vk_match.db'); // FORCED SQLite - database was deleted on Render
 define('DB_STORAGE', str_starts_with(DB_DSN, 'postgresql://') ? 'db' : 'file');
 define('LIKE_OP', str_starts_with(DB_DSN, 'postgresql://') ? 'ILIKE' : 'LIKE');
 
