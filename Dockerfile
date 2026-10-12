@@ -7,39 +7,27 @@ FROM php:8.3-apache
 # pkg-config is needed so configure can locate the codec libs.
 # Do NOT add --with-freetype — freetype2-dev fails on Debian.
 #
-# PostgreSQL SSL: we add the official PostgreSQL apt repo to get
-# a newer libpq5 with proven SSL/TLS support for Render PostgreSQL.
-RUN set -eux;
-    apt-get update;
-    apt-get install -y --no-install-recommends
-        pkg-config
-        libicu-dev
-        libsqlite3-dev
-        ca-certificates
-        curl
-        gnupg
-        lsb-release
-        libpng-dev
-        libjpeg-dev
-        libwebp-dev
-        libgif-dev
-        openssl
-    ;
-    # Add PostgreSQL official apt repo
-    install -d /usr/share/postgresql-common/pgdg/apt.postgresql.org
-    curl -sSL https://www.postgresql.org/media/downloads/apt.postgresql.org/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql-acc.gpg
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/postgresql-acc.gpg] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
-    apt-get update;
-    apt-get install -y --no-install-recommends libpq-dev libpq5 postgresql-client-16
-    # Compile PHP extensions
-    docker-php-ext-install pdo pdo_pgsql pdo_sqlite intl mysqli
-    docker-php-ext-enable pdo pdo_pgsql pdo_sqlite intl mysqli
-    # GD for image uploads
-    docker-php-ext-configure gd --with-jpeg --with-webp
-    docker-php-ext-install gd
-    # Verify extensions loaded
-    php -r 'echo "PG: ", (int)extension_loaded("pdo_pgsql"), " JPEG: ", (int)function_exists("imagecreatefromjpeg"), "\n"; exit(extension_loaded("pdo_pgsql") && function_exists("imagecreatefromjpeg") ? 0 : 1);'
-    ; apt-get clean; rm -rf /var/lib/apt/lists/*
+# libssl-dev and ca-certificates ensure OpenSSL can do TLS handshakes.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libicu-dev \
+    libsqlite3-dev \
+    libpq-dev \
+    libssl-dev \
+    ca-certificates \
+    curl \
+    openssl \
+    libpng-dev \
+    libjpeg-dev \
+    libwebp-dev \
+    libgif-dev \
+    && update-ca-certificates \
+    && docker-php-ext-install pdo pdo_pgsql pdo_sqlite intl mysqli \
+    && docker-php-ext-enable pdo pdo_pgsql pdo_sqlite intl mysqli \
+    && docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install gd \
+    && php -r 'echo "PG: ", (int)extension_loaded("pdo_pgsql"), " JPEG: ", (int)function_exists("imagecreatefromjpeg"), "\n"; exit(extension_loaded("pdo_pgsql") && function_exists("imagecreatefromjpeg") ? 0 : 1);' \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable required Apache modules
 RUN a2enmod rewrite headers expires deflate
