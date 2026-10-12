@@ -17,7 +17,7 @@ function db(): PDO {
             $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
             if (preg_match($pattern, $url, $m)) {
                 $dsn = sprintf('pgsql:host=%s port=%s dbname=%s user=%s password=%s sslmode=require',
-                    $m[1], $m[2], $m[3], $m[4], $m[5]);
+                    $m[3], $m[4], $m[5], $m[1], $m[2]);
             } else {
                 // Fallback: try parse_url (works for plain passwords)
                 $parts = parse_url($url);
