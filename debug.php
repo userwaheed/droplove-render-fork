@@ -3,66 +3,47 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
 echo "pdo_pgsql: " . (extension_loaded('pdo_pgsql') ? 'YES' : 'NO') . "\n";
-echo "OpenSSL: " . OPENSSL_VERSION_TEXT . "\n";
 echo "OPENSSL_CONF: [" . getenv('OPENSSL_CONF') . "]\n";
 echo "PGSSLMODE: [" . getenv('PGSSLMODE') . "]\n";
-echo "DATABASE_URL: [" . (getenv('DATABASE_URL') ? 'SET (redacted)' : 'NOT SET') . "]\n";
+echo "PG_USE_TUNNEL: [" . getenv('PG_USE_TUNNEL') . "]\n";
 
-// Check if the OpenSSL config file exists and show it
-$conf_path = getenv('OPENSSL_CONF') ?: '/usr/local/ssl/openssl.cnf';
-echo "OpenSSL conf file exists: " . (file_exists($conf_path) ? 'YES' : 'NO') . "\n";
-if (file_exists($conf_path)) {
-    echo "OpenSSL conf content:\n---\n" . file_get_contents($conf_path) . "\n---\n";
+// Check if tunnel is listening on 5433
+echo "\n-- Tunnel status --\n";
+$tfp = @fsockopen("127.0.0.1", 5433, $errno, $errstr, 2);
+echo "Tunnel on 127.0.0.1:5433: " . ($tfp ? "LISTENING" : "NOT LISTENING ($errstr)") . "\n";
+if ($tfp) fclose($tfp);
+
+// Check tunnel log
+$tlog = '/var/www/html/data/tunnel.log';
+echo "Tunnel log exists: " . (file_exists($tlog) ? 'YES' : 'NO') . "\n";
+if (file_exists($tlog)) {
+    echo "Tunnel log (last 20 lines):\n";
+    $lines = explode("\n", file_get_contents($tlog));
+    foreach (array_slice($lines, -20) as $line) echo "  " . $line . "\n";
 }
 
-// Try with OPENSSL_CONF explicitly set via putenv
-putenv('OPENSSL_CONF=' . $conf_path);
-$_ENV['OPENSSL_CONF'] = $conf_path;
-
-// Get DATABASE_URL early
+// Test PDO through tunnel (like db() does when PG_USE_TUNNEL=1)
+echo "\n-- PDO through tunnel (127.0.0.1:5433, sslmode=prefer) --\n";
 $db_url = getenv('DATABASE_URL');
 preg_match('/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/', $db_url, $m);
-
-echo "\n-- psql SSL test (sslmode=require) --\n";
-putenv('PGPASSWORD=' . $m[2]);
-echo shell_exec("psql \"host={$m[3]} port={$m[4]} dbname={$m[5]} user={$m[1]} sslmode=require\" -c 'SELECT 1 as result' 2>&1") . "\n";
-
-echo "\n-- psql (sslmode=prefer) --\n";
-echo shell_exec("psql \"host={$m[3]} port={$m[4]} dbname={$m[5]} user={$m[1]} sslmode=prefer\" -c 'SELECT 1 as result' 2>&1") . "\n";
-
-echo "\n-- psql with OPENSSL_CONF (sslmode=require) --\n";
-echo shell_exec("OPENSSL_CONF=/usr/local/ssl/openssl.cnf psql \"host={$m[3]} port={$m[4]} dbname={$m[5]} user={$m[1]} sslmode=require\" -c 'SELECT 1 as result' 2>&1") . "\n";
-
-echo "\n-- openssl s_client test --\n";
-echo shell_exec("echo 'Q' | timeout 10 openssl s_client -connect {$m[3]}:{$m[4]} 2>&1 | head -20") . "\n";
-
-echo "\n-- openssl s_client -starttls postgres test --\n";
-putenv('PGPASSWORD=' . $m[2]);
-echo shell_exec("echo 'Q' | timeout 10 psql \"host={$m[3]} port={$m[4]} dbname={$m[5]} user={$m[1]} sslmode=require\" -c '\\q' 2>&1; echo '---'; echo 'Q' | timeout 10 openssl s_client -starttls postgres -connect {$m[3]}:{$m[4]} -debug 2>&1 | head -30") . "\n";
-
-echo "\n-- PHP stream_socket_enable_crypto test --\n";
-$fp = @fsockopen($m[3], (int)$m[4], $errno, $errstr, 10);
-if ($fp) {
-    fwrite($fp, pack("NN", 8, 80877103));
-    $resp = fread($fp, 1);
-    echo "PG SSL response: " . bin2hex($resp) . " (" . ($resp === "S" ? "SSL supported" : "not supported") . ")\n";
-    if ($resp === "S") {
-        $crypto = @stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-        echo "PHP TLS handshake: " . ($crypto ? "SUCCESS" : "FAILED") . "\n";
-    }
-    fclose($fp);
-} else {
-    echo "fsockopen failed: $errstr ($errno)\n";
-}
-
-echo "\n-- PDO direct connection (sslmode=require) --\n";
-$dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s', $m[3], $m[4], $m[5], $m[1], $m[2]);
-putenv('PGSSLMODE=require');
+$dsn = sprintf('pgsql:host=127.0.0.1;port=5433;dbname=%s;user=%s;password=%s', $m[5], $m[1], $m[2]);
+putenv('PGSSLMODE=prefer');
 try {
-    $pdo = new PDO($dsn, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 15]);
-    echo "PDO: SUCCESS\n";
+    $pdo = new PDO($dsn, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 30]);
+    echo "PDO through tunnel: SUCCESS\n";
     echo "Version: " . substr($pdo->query('SELECT version()')->fetchColumn(), 0, 80) . "\n";
     echo "Users: " . (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() . "\n";
 } catch (Throwable $e) {
-    echo "PDO FAILED: " . $e->getMessage() . "\n";
+    echo "PDO through tunnel FAILED: " . $e->getMessage() . "\n";
+}
+
+// Also try through db() function
+echo "\n-- PDO through db() function --\n";
+require_once __DIR__ . '/db.php';
+try {
+    $pdo2 = db();
+    echo "db(): SUCCESS\n";
+    echo "Users: " . (int)$pdo2->query('SELECT COUNT(*) FROM users')->fetchColumn() . "\n";
+} catch (Throwable $e) {
+    echo "db() FAILED: " . $e->getMessage() . "\n";
 }
