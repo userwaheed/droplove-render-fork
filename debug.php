@@ -22,6 +22,32 @@ echo "\npg_tunnel.php exists: " . (file_exists('/var/www/html/pg_tunnel.php') ? 
 // Check if php binary works
 echo "php -v: " . shell_exec('php -v 2>&1') . "\n";
 
+// Try to run pg_tunnel.php directly and capture errors
+echo "\n-- Trying to run pg_tunnel.php manually --\n";
+echo "pg_tunnel.php syntax check:\n";
+echo shell_exec('php -l /var/www/html/pg_tunnel.php 2>&1') . "\n";
+
+// Try to start the tunnel manually in the background
+echo "Starting tunnel manually...\n";
+$pid = shell_exec('php /var/www/html/pg_tunnel.php > /var/www/html/data/tunnel_manual.log 2>&1 & echo $!');
+echo "Tunnel PID: " . trim($pid) . "\n";
+sleep(3);
+
+// Check if it's listening now
+$tfp2 = @fsockopen("127.0.0.1", 5433, $errno2, $errstr2, 2);
+echo "Tunnel listening: " . ($tfp2 ? "YES" : "NO ($errstr2)") . "\n";
+if ($tfp2) fclose($tfp2);
+
+// Show manual tunnel log
+echo "\nManual tunnel log:\n";
+if (file_exists('/var/www/html/data/tunnel_manual.log')) {
+    echo file_get_contents('/var/www/html/data/tunnel_manual.log') . "\n";
+}
+
+// Show entrypoint log
+echo "\nEntrypoint shell test:\n";
+echo shell_exec('cat /var/www/html/data/tunnel.pid 2>/dev/null') . "\n";
+
 // Check if tunnel is listening on 5433
 echo "\n-- Tunnel status --\n";
 $tfp = @fsockopen("127.0.0.1", 5433, $errno, $errstr, 2);
