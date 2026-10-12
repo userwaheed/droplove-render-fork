@@ -142,9 +142,17 @@ function schema_init_sqlite(PDO $pdo): void {
 function schema_migrate(PDO $pdo): void {
     if (is_postgres()) return;
     try {
-        $cols=$pdo->query('PRAGMA table_info(users)')->fetchAll();
-        foreach($cols as $c) if($c['name']==='verified') break;
-        else $pdo->exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
+        $cols = $pdo->query('PRAGMA table_info(users)')->fetchAll();
+        $hasVerified = false;
+        foreach($cols as $c) {
+            if($c['name']==='verified') {
+                $hasVerified = true;
+                break;
+            }
+        }
+        if (!$hasVerified) {
+            $pdo->exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
+        }
     } catch (Throwable) {}
     
     // Ensure uploads table exists (for SQLite)
