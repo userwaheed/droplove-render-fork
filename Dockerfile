@@ -1,5 +1,5 @@
 FROM php:8.3-apache
-RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev ca-certificates && update-ca-certificates && docker-php-ext-install pdo_pgsql && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev ca-certificates postgresql-client && update-ca-certificates && docker-php-ext-install pdo_pgsql && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Custom OpenSSL config: security level 0 allows all cipher suites.
 # Fixes "SSL connection has been closed unexpectedly" with OpenSSL 3.5.x
