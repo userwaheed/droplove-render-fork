@@ -24,9 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     lsb-release \
     gnupg \
-    && echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/sury-php.list \
+    && echo "deb https://packages.sury.org/php/ bookworm main" > /etc/apt/sources.list.d/sury-php.list \
     && curl -sSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/sury-php.gpg \
     && apt-get update && apt-get install -y --no-install-recommends php8.3-pgsql \
+    && docker-php-ext-enable pdo_pgsql \
     && docker-php-ext-install pdo pdo_sqlite intl mysqli \
     && docker-php-ext-enable pdo pdo_sqlite intl mysqli \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
