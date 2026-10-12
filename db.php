@@ -25,6 +25,9 @@ function db(): PDO {
                 if (isset($parts['pass'])) $dsn .= ";password={$parts['pass']}";
                 $dsn .= ';sslmode=require';
             }
+            // Set PGCONNECT env var to ensure SSL mode is applied
+            // (PDO PGSQL DSN sslmode parameter may not be respected in all PHP builds)
+            putenv('PGCONNECT=sslmode=require');
             $pdo = new PDO($dsn, null, null, $opt);
             $pdo->exec("SET client_encoding = 'UTF8'");
         } else {
