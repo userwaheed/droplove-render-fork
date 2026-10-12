@@ -11,18 +11,30 @@ function db(): PDO {
             // Render's DATABASE_URL password may contain special characters.
             $url = DB_DSN;
             $url = preg_replace('/\?.*$/', '', $url);
-            $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
-            if (preg_match($pattern, $url, $m)) {
+            $use_tunnel = getenv('PG_USE_TUNNEL') === '1';
+            if ($use_tunnel) {
+                // Connect to local SSL tunnel (pg_tunnel.php) that handles TLS to PG server.
+                // Works around libpq SSL handshake failures with OpenSSL 3.5.x.
+                $tunnel_host = getenv('PG_TUNNEL_HOST') ?: '127.0.0.1';
+                $tunnel_port = getenv('PG_TUNNEL_PORT') ?: '5433';
+                $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
+                preg_match($pattern, $url, $m);
                 $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
-                    $m[3], $m[4], $m[5], $m[1], $m[2]);
+                    $tunnel_host, $tunnel_port, $m[5], $m[1], $m[2]);
             } else {
-                $parts = parse_url($url);
-                $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', $parts['host'], $parts['port'], ltrim($parts['path'],'/'));
-                if (isset($parts['user'])) $dsn .= ";user={$parts['user']}";
-                if (isset($parts['pass'])) $dsn .= ";password={$parts['pass']}";
+                // Direct connection to PostgreSQL
+                $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
+                if (preg_match($pattern, $url, $m)) {
+                    $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
+                        $m[3], $m[4], $m[5], $m[1], $m[2]);
+                } else {
+                    $parts = parse_url($url);
+                    $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', $parts['host'], $parts['port'], ltrim($parts['path'],'/'));
+                    if (isset($parts['user'])) $dsn .= ";user={$parts['user']}";
+                    if (isset($parts['pass'])) $dsn .= ";password={$parts['pass']}";
+                }
+                putenv('PGSSLMODE=require');
             }
-            // Use PGCONNECT env var for sslmode (libpq respects this)
-            putenv('PGCONNECT=sslmode=require');
             $pdo = new PDO($dsn, null, null, $opt);
             $pdo->exec("SET client_encoding = 'UTF8'");
         } else {

@@ -8,7 +8,6 @@ FROM php:8.3-apache
 # Do NOT add --with-freetype — freetype2-dev fails on Debian.
 #
 # libssl-dev and ca-certificates ensure OpenSSL can do TLS handshakes.
-# postgresql-client gives us psql and libpq5 for SSL diagnostics.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libicu-dev \
@@ -16,9 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libssl-dev \
     ca-certificates \
-    curl \
-    openssl \
-    postgresql-client \
     libpng-dev \
     libjpeg-dev \
     libwebp-dev \
@@ -34,8 +30,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Enable required Apache modules
 RUN a2enmod rewrite headers expires deflate
 
-# Ensure SSL is used for PostgreSQL connections (Render requires SSL)
+# Ensure SSL is used for PostgreSQL connections for direct connections
 ENV PGSSLMODE=require
+
+# When PG_USE_TUNNEL=1, PHP connects to a local SSL tunnel (127.0.0.1:5433)
+# that terminates TLS to the PostgreSQL server. This is enabled automatically
+# because libpq has a known SSL handshake failure on OpenSSL 3.5.x + Render PG.
+ENV PG_USE_TUNNEL=1 \
+    PG_TUNNEL_HOST=127.0.0.1 \
+    PG_TUNNEL_PORT=5433
 
 # Clear default Apache docroot
 RUN rm -rf /var/www/html/*
@@ -54,7 +57,7 @@ RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 EXPOSE 80
 
-# Entrypoint fixes permissions on the persistent volume before Apache starts.
+# Entrypoint starts the SSL tunnel then Apache.
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
