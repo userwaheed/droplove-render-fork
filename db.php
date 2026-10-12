@@ -26,7 +26,7 @@ function db(): PDO {
                 if (isset($parts['pass'])) $dsn .= " password={$parts['pass']}";
                 $dsn .= ' sslmode=require';
             }
-            $pdo = new PDO($dsn,null,null,$opt);
+            $pdo = new PDO($dsn, null, null, $opt);
             $pdo->exec("SET client_encoding = 'UTF8'");
         } else {
             $dir=__DIR__ . '/data'; if(!is_dir($dir)) @mkdir($dir,0775,true);
