@@ -16,6 +16,13 @@ header('Access-Control-Max-Age: 86400');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 $file = basename($_GET['file'] ?? '');
+// Strip any cache-busting query string appended to the filename
+// (e.g. uploads.php?file=avatar_x.jpg?v=123 -> avatar_x.jpg).
+// A real filename never contains ? or &, so cutting there is safe.
+$rawFile = $_GET['file'] ?? '';
+$rawFile = explode('?', $rawFile, 2)[0];
+$rawFile = explode('&', $rawFile, 2)[0];
+$file = basename($rawFile);
 $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 
