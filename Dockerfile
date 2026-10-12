@@ -21,15 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-dev \
     libwebp-dev \
     libgif-dev \
+    libssl-dev \
     ca-certificates \
-    lsb-release \
-    gnupg \
-    && echo "deb https://packages.sury.org/php/ bookworm main" > /etc/apt/sources.list.d/sury-php.list \
-    && curl -sSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/sury-php.gpg \
-    && apt-get update && apt-get install -y --no-install-recommends php8.3-pgsql \
-    && docker-php-ext-enable pdo_pgsql \
-    && docker-php-ext-install pdo pdo_sqlite intl mysqli \
-    && docker-php-ext-enable pdo pdo_sqlite intl mysqli \
+    && docker-php-ext-install pdo pdo_pgsql intl mysqli \
+    && docker-php-ext-enable pdo pdo_pgsql intl mysqli \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install gd \
     && php -r 'echo "JPEG: ", (int)function_exists("imagecreatefromjpeg"), " WebP: ", (int)function_exists("imagecreatefromwebp"), " PG: ", (int)extension_loaded("pdo_pgsql"), "\n"; exit(function_exists("imagecreatefromjpeg") && extension_loaded("pdo_pgsql") ? 0 : 1);' \
@@ -37,6 +32,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Enable required Apache modules
 RUN a2enmod rewrite headers expires deflate
+
+# Ensure SSL is used for PostgreSQL connections (Render requires SSL)
+ENV PGSSLMODE=require \
+    PGSSLCOMPRESSION=0
 
 # Clear default Apache docroot
 RUN rm -rf /var/www/html/*
