@@ -45,11 +45,11 @@ while (true) {
         $pid = pcntl_fork();
         if ($pid == -1) {
             error_log("Tunnel: fork failed");
-            @fclose($client);
+            @if (is_resource($client)) @fclose($client);
         } elseif ($pid > 0) {
-            @fclose($client);
+            @if (is_resource($client)) @fclose($client);
         } else {
-            @fclose($server);
+            @if (is_resource($server)) @fclose($server);
             $r = handleClient($client, $PG_HOST, $PG_PORT);
             error_log("Tunnel: client handled, result=" . $r);
             exit(0);
@@ -96,7 +96,7 @@ function handleClient($client, $host, $port) {
     if (!$server) {
         error_log("Tunnel: PG connect failed: $errstr ($errno)");
         fwrite($client, "N");
-        @fclose($client);
+        @if (is_resource($client)) @fclose($client);
         return "pg_connect_failed";
     }
     stream_set_blocking($server, true);
@@ -105,8 +105,8 @@ function handleClient($client, $host, $port) {
     $client_data = readPacket($client);
     if ($client_data === false) {
         error_log("Tunnel: client disconnected before sending data");
-        @@fclose($server);
-        @@fclose($client);
+        @@if (is_resource($server)) @fclose($server);
+        @@if (is_resource($client)) @fclose($client);
         return "client_disconnected";
     }
 
@@ -122,8 +122,8 @@ function handleClient($client, $host, $port) {
         $startup = readPacket($client);
         if ($startup === false) {
             error_log("Tunnel: client disconnected after N");
-            @fclose($server);
-            @fclose($client);
+            @if (is_resource($server)) @fclose($server);
+            @if (is_resource($client)) @fclose($client);
             return "client_disconnected_after_n";
         }
         
@@ -140,8 +140,8 @@ function handleClient($client, $host, $port) {
             } else {
                 error_log("Tunnel: PG server TLS upgrade FAILED: " . json_encode(error_get_last()));
                 fwrite($client, "N");
-                @@fclose($server);
-                @@fclose($client);
+                @@if (is_resource($server)) @fclose($server);
+                @@if (is_resource($client)) @fclose($client);
                 return "tls_failed";
             }
         }
@@ -169,8 +169,8 @@ function handleClient($client, $host, $port) {
         proxyData($client, $server);
     }
 
-    @@fclose($server);
-    @@fclose($client);
+    @@if (is_resource($server)) @fclose($server);
+    @@if (is_resource($client)) @fclose($client);
     error_log("Tunnel: client handled and disconnected");
     return "ok";
 }
@@ -185,11 +185,13 @@ function proxyData($a, $b) {
     $buf_ba = "";
     $a_dead = false;
     $b_dead = false;
+    $bytes_a2b = 0;
+    $bytes_b2a = 0;
     
     while (!$a_dead || !$b_dead) {
-        $read = [];
-        $write = [];
-        $error = [];
+        $read = array();
+        $write = array();
+        $error = array();
         
         if (!$a_dead) $read[] = $a;
         if (!$b_dead) $read[] = $b;
@@ -198,32 +200,50 @@ function proxyData($a, $b) {
         
         $changed = @stream_select($read, $write, $error, 120);
         if ($changed === false || $changed === 0) {
+            error_log("Tunnel: select timeout/idle, a2b=" . $bytes_a2b . " b2a=" . $bytes_b2a);
             usleep(50000);
             continue;
         }
         
-        if (in_array($a, $read)) {
+        if (in_array($a, $read, true)) {
             $data = fread($a, 16384);
-            if ($data === false || feof($a)) { $a_dead = true; @fclose($a); }
-            else $buf_ab .= $data;
+            if ($data === false || feof($a)) {
+                error_log("Tunnel: client EOF, a2b=" . $bytes_a2b . " b2a=" . $bytes_b2a);
+                $a_dead = true;
+                if (is_resource($a)) @fclose($a);
+            } else {
+                $bytes_a2b += strlen($data);
+                $buf_ab .= $data;
+                // Log first few bytes of each packet
+                $ptype = strlen($data) > 0 ? bin2hex(substr($data, 0, min(1, strlen($data)))) : "";
+                // error_log("Tunnel: client->" . $bytes_a2b . " bytes: " . bin2hex(substr($data, 0, 8)));
+            }
         }
-        if (in_array($b, $read)) {
+        if (in_array($b, $read, true)) {
             $data = fread($b, 16384);
-            if ($data === false || feof($b)) { $b_dead = true; @fclose($b); }
-            else $buf_ba .= $data;
+            if ($data === false || feof($b)) {
+                error_log("Tunnel: server EOF, a2b=" . $bytes_a2b . " b2a=" . $bytes_b2a);
+                $b_dead = true;
+                if (is_resource($b)) @fclose($b);
+            } else {
+                $bytes_b2a += strlen($data);
+                $buf_ba .= $data;
+                // Log first few bytes of server response
+                error_log("Tunnel: server->" . $bytes_b2a . " bytes: " . bin2hex(substr($data, 0, min(20, strlen($data)))));
+            }
         }
-        if (in_array($b, $write) && $buf_ab !== "") {
+        if (in_array($b, $write, true) && $buf_ab !== "") {
             $w = fwrite($b, $buf_ab);
-            if ($w === false) { $b_dead = true; @fclose($b); }
+            if ($w === false) { $b_dead = true; if (is_resource($b)) @fclose($b); }
             else $buf_ab = substr($buf_ab, $w);
         }
-        if (in_array($a, $write) && $buf_ba !== "") {
+        if (in_array($a, $write, true) && $buf_ba !== "") {
             $w = fwrite($a, $buf_ba);
-            if ($w === false) { $a_dead = true; @fclose($a); }
+            if ($w === false) { $a_dead = true; if (is_resource($a)) @fclose($a); }
             else $buf_ba = substr($buf_ba, $w);
         }
     }
     
-    @fclose($a);
-    @fclose($b);
+    if (is_resource($a)) @fclose($a);
+    if (is_resource($b)) @fclose($b);
 }
