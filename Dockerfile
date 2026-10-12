@@ -18,9 +18,11 @@ RUN mkdir -p /usr/local/ssl && printf 'openssl_conf = openssl_init\n\n[openssl_i
 # Enable Apache modules
 RUN a2enmod rewrite headers expires deflate
 
-# Ensure SSL is used for PostgreSQL connections (Render requires SSL)
+# Environment
 ENV PGSSLMODE=prefer
 ENV OPENSSL_CONF=/usr/local/ssl/openssl.cnf
+ENV PG_USE_TUNNEL=1
+ENV PG_TUNNEL_PORT=5433
 
 # Clear default Apache docroot
 RUN rm -rf /var/www/html/*
