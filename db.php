@@ -15,6 +15,9 @@ function db(): PDO {
             if ($use_tunnel) {
                 // Connect to local SSL tunnel (pg_tunnel.php) that handles TLS to PG server.
                 // Works around libpq SSL handshake failures with OpenSSL 3.5.x.
+                // The tunnel responds "N" to SSL requests and handles TLS server-side,
+                // so we use sslmode=prefer to allow non-SSL fallback.
+                putenv('PGSSLMODE=prefer');
                 $tunnel_host = getenv('PG_TUNNEL_HOST') ?: '127.0.0.1';
                 $tunnel_port = getenv('PG_TUNNEL_PORT') ?: '5433';
                 $pattern = '/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):([0-9]+)\/(.+)$/';
