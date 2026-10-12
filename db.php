@@ -2,6 +2,28 @@
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 
+
+function start_tunnel_if_needed(int $port): void {
+    static $started = false;
+    if ($started) return;
+    // Check if tunnel already listening
+    $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 1);
+    if ($fp) { fclose($fp); $started = true; return; }
+    // Start pg_tunnel.php in background
+    $log = __DIR__ . '/data/tunnel.log';
+    $dir = __DIR__ . '/data';
+    if (!is_dir($dir)) mkdir($dir, 0775, true);
+    $cmd = "php " . escapeshellarg(__DIR__ . "/pg_tunnel.php") . " >> " . escapeshellarg($log) . " 2>&1 &";
+    shell_exec($cmd);
+    // Wait for tunnel to start
+    for ($i = 0; $i < 10; $i++) {
+        usleep(300000);
+        $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 1);
+        if ($fp) { fclose($fp); $started = true; return; }
+    }
+    $started = true; // Don't retry on every request
+}
+
 function db(): PDO {
     static $pdo = null;
     if ($pdo === null) {
@@ -13,10 +35,8 @@ function db(): PDO {
             $url = preg_replace('/\?.*$/', '', $url);
             $use_tunnel = getenv('PG_USE_TUNNEL') === '1';
             if ($use_tunnel) {
-                // Connect to local SSL tunnel (pg_tunnel.php) that handles TLS to PG server.
-                // Works around libpq SSL handshake failures with OpenSSL 3.5.x.
-                // The tunnel responds "N" to SSL requests and handles TLS server-side,
-                // so we use sslmode=prefer to allow non-SSL fallback.
+                $tunnel_port = (int)(getenv('PG_TUNNEL_PORT') ?: '5433');
+                start_tunnel_if_needed($tunnel_port);
                 putenv('PGSSLMODE=prefer');
                 $tunnel_host = getenv('PG_TUNNEL_HOST') ?: '127.0.0.1';
                 $tunnel_port = getenv('PG_TUNNEL_PORT') ?: '5433';
