@@ -1,20 +1,17 @@
 <?php
 /**
- * pg_tunnel.php - PostgreSQL SSL tunnel (TLS-terminating proxy)
+ * pg_tunnel.php - PostgreSQL SSL tunnel
  *
  * Works around libpq SSL handshake failures to Render PostgreSQL.
- * libpq (used by PHP pdo_pgsql) fails to complete TLS handshakes with
- * certain PostgreSQL servers, even though PHP's stream_socket_enable_crypto
- * works perfectly.
+ * PHP's stream_socket_enable_crypto completes TLS handshakes successfully,
+ * but libpq (used by pdo_pgsql) fails.
  *
- * This tunnel acts as a protocol-level proxy:
- *   - Client (libpq) connects to localhost:5433 WITHOUT SSL (sslmode=disable)
- *   - Tunnel connects to the real PG server and does SSL upgrade using PHP's
- *     stream_socket_enable_crypto (which works)
- *   - Data is proxied between client (plain TCP) and PG server (TLS)
- *
- * Configure db.php to connect to 'localhost:5433' with the same
- * dbname/user/password — no SSL on the client side needed.
+ * This tunnel:
+ *   1. Listens on 127.0.0.1:5433 (plain TCP)
+ *   2. Accepts client connections
+ *   3. Tells client "N" (no SSL) — client connects without SSL
+ *   4. Connects to real PG server, does SSL upgrade via stream_socket_enable_crypto
+ *   5. Proxies data between client (plain) and PG server (TLS)
  */
 
 $db_url = getenv('DATABASE_URL');
@@ -35,42 +32,38 @@ ini_set('error_log', '/var/www/html/data/tunnel.log');
 echo "PG SSL Tunnel: {$L_HOST}:{$L_PORT} -> {$PG_HOST}:{$PG_PORT}\n";
 flush();
 
-if (!function_exists('pcntl_fork')) {
-    // No pcntl — single-threaded mode
-    $server = stream_socket_server("tcp://{$L_HOST}:{$L_PORT}", $errno, $errstr);
-    if (!$server) {
-        fwrite(STDERR, "FATAL: Cannot listen on {$L_HOST}:{$L_PORT}: $errstr ($errno)\n");
-        exit(1);
+$server = stream_socket_server("tcp://{$L_HOST}:{$L_PORT}", $errno, $errstr);
+if (!$server) {
+    fwrite(STDERR, "FATAL: Cannot listen on {$L_HOST}:{$L_PORT}: $errstr ($errno)\n");
+    exit(1);
+}
+
+// Fork a child for each connection (or run sequentially if no pcntl)
+while (true) {
+    $client = @stream_socket_accept($server, -1);
+    if (!$client) {
+        usleep(100000);
+        continue;
     }
-    while (true) {
-        $client = @stream_accept($server, -1);
-        if (!$client) { usleep(100000); continue; }
-        handleClient($client, $PG_HOST, $PG_PORT, $PG_USER, $PG_PASS, $PG_DB);
-    }
-} else {
-    $server = stream_socket_server("tcp://{$L_HOST}:{$L_PORT}", $errno, $errstr);
-    if (!$server) {
-        fwrite(STDERR, "FATAL: Cannot listen on {$L_HOST}:{$L_PORT}: $errstr ($errno)\n");
-        exit(1);
-    }
-    while (true) {
-        $client = @stream_accept($server, -1);
-        if (!$client) { usleep(100000); continue; }
+    
+    if (function_exists('pcntl_fork')) {
         $pid = pcntl_fork();
         if ($pid == -1) {
-            error_log("Tunnel: pcntl_fork failed");
+            error_log("Tunnel: fork failed");
             fclose($client);
         } elseif ($pid > 0) {
             fclose($client);
         } else {
             fclose($server);
-            handleClient($client, $PG_HOST, $PG_PORT, $PG_USER, $PG_PASS, $PG_DB);
+            handleClient($client, $PG_HOST, $PG_PORT);
             exit(0);
         }
+    } else {
+        handleClient($client, $PG_HOST, $PG_PORT);
     }
 }
 
-function handleClient($client, $host, $port, $user, $pass, $db) {
+function handleClient($client, $host, $port) {
     stream_set_blocking($client, true);
     error_log("Tunnel: client connected from " . stream_socket_get_name($client, true));
 
@@ -78,7 +71,10 @@ function handleClient($client, $host, $port, $user, $pass, $db) {
     $server = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, 15);
     if (!$server) {
         error_log("Tunnel: PG connect failed: $errstr ($errno)");
-        fclose($client);
+        // Tell client SSL not available so it sends StartupMessage directly
+        fwrite($client, "N");
+        // But also handle the case where client doesn't send SSLRequest
+        proxyData($client, null);
         return;
     }
     stream_set_blocking($server, true);
@@ -92,14 +88,13 @@ function handleClient($client, $host, $port, $user, $pass, $db) {
         return;
     }
 
-    // Check protocol: SSLRequest = 80877103
+    // Check protocol version
     $proto = unpack("N", substr($client_data, 4, 4))[1];
 
     if ($proto === 80877103) {
-        // Client wants SSL — but we handle it ourselves on the server side
-        // Tell client SSL is NOT available (so libpq won't try its broken TLS)
+        // Client wants SSL — tell client NO SSL (we handle TLS server-side)
         fwrite($client, "N");
-        error_log("Tunnel: told client 'N' (no SSL) — will handle TLS server-side");
+        error_log("Tunnel: told client 'N' (no SSL)");
         
         // Read client's StartupMessage (sent after N response)
         $startup = readPacket($client);
@@ -122,21 +117,20 @@ function handleClient($client, $host, $port, $user, $pass, $db) {
                 error_log("Tunnel: PG server TLS upgrade SUCCESS");
             } else {
                 error_log("Tunnel: PG server TLS upgrade FAILED: " . json_encode(error_get_last()));
-                fwrite($client, "N"); // Tell client too
+                fwrite($client, "N");
                 fclose($server);
                 fclose($client);
                 return;
             }
         }
 
-        // Step 4: Forward the client's StartupMessage to the TLS-secured PG server
+        // Step 4: Forward the client's StartupMessage to PG server
         fwrite($server, $startup);
         
-        // Step 5: Proxy data between client (plain TCP) and server (TLS)
+        // Step 5: Proxy data between client (plain) and server (TLS)
         proxyData($client, $server);
     } else {
         // Client sent StartupMessage directly (no SSL request)
-        // Forward to PG server and handle SSL on our end
         fwrite($server, $client_data);
         
         // Try SSL request to server
@@ -145,9 +139,7 @@ function handleClient($client, $host, $port, $user, $pass, $db) {
         $resp = fread($server, 1);
         if ($resp === 'S') {
             $crypto = @stream_socket_enable_crypto($server, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-            if ($crypto) {
-                error_log("Tunnel: PG server TLS upgrade SUCCESS (no SSL from client)");
-            } else {
+            if (!$crypto) {
                 error_log("Tunnel: PG server TLS upgrade FAILED");
             }
         }
@@ -181,11 +173,16 @@ function readPacket($fp) {
 }
 
 function proxyData($a, $b) {
+    if ($b === null) {
+        // Just close the client
+        fclose($a);
+        return;
+    }
     stream_set_blocking($a, false);
     stream_set_blocking($b, false);
     
-    $buf_ab = ''; // a to b
-    $buf_ba = ''; // b to a
+    $buf_ab = '';
+    $buf_ba = '';
     $a_dead = false;
     $b_dead = false;
     
