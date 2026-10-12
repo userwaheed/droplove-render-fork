@@ -45,11 +45,11 @@ while (true) {
         $pid = pcntl_fork();
         if ($pid == -1) {
             error_log("Tunnel: fork failed");
-            fclose($client);
+            @fclose($client);
         } elseif ($pid > 0) {
-            fclose($client);
+            @fclose($client);
         } else {
-            fclose($server);
+            @fclose($server);
             $r = handleClient($client, $PG_HOST, $PG_PORT);
             error_log("Tunnel: client handled, result=" . $r);
             exit(0);
@@ -96,7 +96,7 @@ function handleClient($client, $host, $port) {
     if (!$server) {
         error_log("Tunnel: PG connect failed: $errstr ($errno)");
         fwrite($client, "N");
-        fclose($client);
+        @fclose($client);
         return "pg_connect_failed";
     }
     stream_set_blocking($server, true);
@@ -105,8 +105,8 @@ function handleClient($client, $host, $port) {
     $client_data = readPacket($client);
     if ($client_data === false) {
         error_log("Tunnel: client disconnected before sending data");
-        fclose($server);
-        fclose($client);
+        @@fclose($server);
+        @@fclose($client);
         return "client_disconnected";
     }
 
@@ -122,8 +122,8 @@ function handleClient($client, $host, $port) {
         $startup = readPacket($client);
         if ($startup === false) {
             error_log("Tunnel: client disconnected after N");
-            fclose($server);
-            fclose($client);
+            @fclose($server);
+            @fclose($client);
             return "client_disconnected_after_n";
         }
         
@@ -140,8 +140,8 @@ function handleClient($client, $host, $port) {
             } else {
                 error_log("Tunnel: PG server TLS upgrade FAILED: " . json_encode(error_get_last()));
                 fwrite($client, "N");
-                fclose($server);
-                fclose($client);
+                @@fclose($server);
+                @@fclose($client);
                 return "tls_failed";
             }
         }
@@ -169,13 +169,15 @@ function handleClient($client, $host, $port) {
         proxyData($client, $server);
     }
 
-    fclose($server);
-    fclose($client);
+    @@fclose($server);
+    @@fclose($client);
     error_log("Tunnel: client handled and disconnected");
     return "ok";
 }
 
 function proxyData($a, $b) {
+    stream_set_timeout($a, 0);
+    stream_set_timeout($b, 0);
     stream_set_blocking($a, false);
     stream_set_blocking($b, false);
     
@@ -194,7 +196,7 @@ function proxyData($a, $b) {
         if ($buf_ab !== "") $write[] = $b;
         if ($buf_ba !== "") $write[] = $a;
         
-        $changed = @stream_select($read, $write, $error, 30);
+        $changed = @stream_select($read, $write, $error, 120);
         if ($changed === false || $changed === 0) {
             usleep(50000);
             continue;
@@ -222,6 +224,6 @@ function proxyData($a, $b) {
         }
     }
     
-    if (!$a_dead) @fclose($a);
-    if (!$b_dead) @fclose($b);
+    @fclose($a);
+    @fclose($b);
 }
