@@ -422,6 +422,164 @@ function delete_upload(?string $filename): void
     }
 }
 
+/**
+ * Read an existing uploaded image's raw bytes from storage (DB or file).
+ * Returns null if the file cannot be found.
+ */
+function load_upload_data(string $filename): ?string
+{
+    $basename = basename($filename);
+    if (DB_STORAGE === 'db') {
+        $pdo = db();
+        $stmt = $pdo->prepare('SELECT data FROM uploads WHERE filename = ?');
+        $stmt->execute([$basename]);
+        $row = $stmt->fetch();
+        return $row ? $row['data'] : null;
+    }
+    $dirs = [UPLOAD_DIR, BASE_PATH . '/uploads/'];
+    foreach ($dirs as $dir) {
+        $p = $dir . $basename;
+        if (is_file($p) && str_starts_with($p, $dir)) {
+            return file_get_contents($p);
+        }
+    }
+    return null;
+}
+
+/**
+ * Get the MIME type of an existing uploaded image from storage.
+ * Falls back to guessing from the filename extension.
+ */
+function load_upload_mime(string $filename): string
+{
+    $basename = basename($filename);
+    if (DB_STORAGE === 'db') {
+        $pdo = db();
+        $stmt = $pdo->prepare('SELECT mime FROM uploads WHERE filename = ?');
+        $stmt->execute([$basename]);
+        $row = $stmt->fetch();
+        if ($row && !empty($row['mime'])) return $row['mime'];
+    }
+    $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+    return [
+        'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+        'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp',
+    ][$ext] ?? 'image/jpeg';
+}
+
+/**
+ * Apply GD filters to an existing uploaded image and store the result as a new upload.
+ * Returns the new filename, or null on failure.
+ */
+function apply_image_filters(string $filename, array $filters): ?string
+{
+    if (!extension_loaded('gd')) {
+        return null;
+    }
+
+    $data = load_upload_data($filename);
+    if ($data === null || $data === false) {
+        return null;
+    }
+
+    $tmpSrc = tempnam(sys_get_temp_dir(), 'src_');
+    file_put_contents($tmpSrc, $data);
+
+    $mime = load_upload_mime($filename);
+    $src = null;
+    switch ($mime) {
+        case 'image/jpeg': $src = @imagecreatefromjpeg($tmpSrc); break;
+        case 'image/png':  $src = @imagecreatefrompng($tmpSrc);  break;
+        case 'image/gif':  $src = @imagecreatefromgif($tmpSrc);  break;
+        case 'image/webp': $src = @imagecreatefromwebp($tmpSrc); break;
+    }
+    if (!$src) {
+        @unlink($tmpSrc);
+        return null;
+    }
+
+    $brightness = (int)($filters['brightness'] ?? 100);
+    $contrast   = (int)($filters['contrast'] ?? 100);
+    $saturation = (int)($filters['saturation'] ?? 100);
+    $blur       = (float)($filters['blur'] ?? 0);
+    $grayscale  = (int)($filters['grayscale'] ?? 0);
+    $hue        = (int)($filters['hue'] ?? 0);
+    $rotate     = (int)($filters['rotate'] ?? 0);
+
+    // Filters that operate on a GD image resource
+    if ($brightness !== 100) {
+        imagefilter($src, IMG_FILTER_BRIGHTNESS, ($brightness - 100) * 2.55);
+    }
+    if ($contrast !== 100) {
+        imagefilter($src, IMG_FILTER_CONTRAST, ($contrast - 100) * 2.55);
+    }
+    if ($saturation !== 100) {
+        imagefilter($src, IMG_FILTER_SATURATION, ($saturation - 100) * 2.55);
+    }
+    if ($grayscale > 0) {
+        imagefilter($src, IMG_FILTER_GRAYSCALE, $grayscale);
+    }
+    if ($blur > 0) {
+        imagefilter($src, IMG_FILTER_SMOOTH, (int)($blur * 10));
+    }
+    if ($hue !== 0) {
+        imagefilter($src, IMG_FILTER_HUE, $hue);
+    }
+
+    // Rotation (90-degree steps)
+    if ($rotate !== 0) {
+        $rotated = imagerotate($src, $rotate, 0);
+        if ($rotated !== false) {
+            imagedestroy($src);
+            $src = $rotated;
+        }
+    }
+
+    // Save the filtered image
+    $tmpOut = tempnam(sys_get_temp_dir(), 'out_');
+    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    switch ($mime) {
+        case 'image/png':  $ok = imagepng($src, $tmpOut, 7);  break;
+        case 'image/gif':  $ok = imagegif($src, $tmpOut);      break;
+        case 'image/webp': $ok = imagewebp($src, $tmpOut, 85); break;
+        default:           $ok = imagejpeg($src, $tmpOut, 85); $mime = 'image/jpeg'; $ext = 'jpg'; break;
+    }
+
+    imagedestroy($src);
+    @unlink($tmpSrc);
+
+    if (!$ok || !file_exists($tmpOut) || filesize($tmpOut) === 0) {
+        @unlink($tmpOut);
+        return null;
+    }
+
+    $newName = 'edited_' . date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+    $newData = file_get_contents($tmpOut);
+    $newSize = strlen($newData);
+    @unlink($tmpOut);
+
+    if ($newSize > MAX_AVATAR_MB * 1024 * 1024) {
+        return null;
+    }
+
+    if (DB_STORAGE === 'db') {
+        $pdo = db();
+        if (is_postgres()) {
+            $stmt = $pdo->prepare('INSERT INTO uploads (filename, mime, data, size) VALUES (?, ?, ?, ?) ON CONFLICT (filename) DO NOTHING');
+        } else {
+            $stmt = $pdo->prepare('INSERT OR IGNORE INTO uploads (filename, mime, data, size) VALUES (?, ?, ?, ?)');
+        }
+        $stmt->execute([$newName, $mime, $newData, $newSize]);
+    } else {
+        if (!is_dir(UPLOAD_DIR) && !mkdir(UPLOAD_DIR, 0775, true)) {
+            return null;
+        }
+        file_put_contents(UPLOAD_DIR . $newName, $newData);
+    }
+
+    return $newName;
+}
+
 /* ──────────────────────────────── Redirect ──────────────────────────────── */
 
 /** Relative-safe location: preserves the current directory level. */

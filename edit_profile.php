@@ -159,6 +159,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logout();
             redirect('/');
         }
+    } elseif ($action === 'avatar_edit' || $action === 'cover_edit' || $action === 'photo_edit') {
+        $brightness  = min(200, max(50, (int)($_POST['brightness'] ?? 100)));
+        $contrast    = min(200, max(50, (int)($_POST['contrast'] ?? 100)));
+        $saturation  = min(200, max(0,  (int)($_POST['saturation'] ?? 100)));
+        $blur        = min(10,  max(0,  (float)($_POST['blur'] ?? 0)));
+        $grayscale   = min(100, max(0,  (int)($_POST['grayscale'] ?? 0)));
+        $hue         = min(360, max(0,  (int)($_POST['hue'] ?? 0)));
+        $rotate      = in_array((int)($_POST['rotate'] ?? 0), [-180, -90, 0, 90, 180], true) ? (int)$_POST['rotate'] : 0;
+
+        if ($brightness === 100 && $contrast === 100 && $saturation === 100 &&
+            $blur === 0 && $grayscale === 0 && $hue === 0 && $rotate === 0) {
+            flash('info', 'No changes made.');
+            redirect('/edit_profile.php?tab=photos');
+        }
+
+        try {
+            if ($action === 'avatar_edit') {
+                if (empty($me['avatar'])) {
+                    flash('error', 'No photo to edit.');
+                    redirect('/edit_profile.php?tab=photos');
+                }
+                $name = $me['avatar'];
+            } elseif ($action === 'cover_edit') {
+                if (empty($me['cover'])) {
+                    flash('error', 'No photo to edit.');
+                    redirect('/edit_profile.php?tab=photos');
+                }
+                $name = $me['cover'];
+            } else {
+                $photoId = (int)($_POST['photo_id'] ?? 0);
+                $s = $pdo->prepare('SELECT photo FROM profile_photos WHERE id = ? AND user_id = ?');
+                $s->execute([$photoId, $me['id']]);
+                $row = $s->fetch();
+                if (!$row) {
+                    flash('error', 'Photo not found.');
+                    redirect('/edit_profile.php?tab=photos');
+                }
+                $name = $row['photo'];
+            }
+
+            $newName = apply_image_filters($name, [
+                'brightness' => $brightness,
+                'contrast'   => $contrast,
+                'saturation' => $saturation,
+                'blur'       => $blur,
+                'grayscale'  => $grayscale,
+                'hue'        => $hue,
+                'rotate'     => $rotate,
+            ]);
+
+            if ($newName) {
+                if ($action === 'avatar_edit') {
+                    delete_upload($me['avatar']);
+                    $pdo->prepare("UPDATE users SET avatar = ?, updated_at = datetime('now') WHERE id = ?")
+                        ->execute([$newName, $me['id']]);
+                } elseif ($action === 'cover_edit') {
+                    delete_upload($me['cover']);
+                    $pdo->prepare("UPDATE users SET cover = ?, updated_at = datetime('now') WHERE id = ?")
+                        ->execute([$newName, $me['id']]);
+                } else {
+                    $pdo->prepare('UPDATE profile_photos SET photo = ? WHERE id = ? AND user_id = ?')
+                        ->execute([$newName, $photoId, $me['id']]);
+                }
+                unset($_SESSION['user']);
+                flash('success', 'Photo updated.');
+            } else {
+                flash('error', 'Filter failed. Is the GD library available?');
+            }
+        } catch (Throwable $ex) {
+            flash('error', 'Filter failed: ' . $ex->getMessage());
+        }
+        redirect('/edit_profile.php?tab=photos');
     }
 }
 

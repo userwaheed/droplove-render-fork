@@ -153,8 +153,8 @@ require __DIR__ . '/_layout_top.php';
           <h3>Profile photo</h3>
           <div style="display:flex;gap:1.2rem;align-items:center;margin-bottom:1rem">
             <div class="edit-img-wrap">
-              <img class="avatar xl" src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" alt="Your photo" data-fb>
-              <button class="img-edit-btn" type="button" data-img-edit data-action="avatar" data-img-src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" data-img-alt="Profile photo" aria-label="Edit photo">
+              <img class="avatar xl" id="avatarPreview" src="<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>" alt="Your photo" data-fb>
+              <button class="img-edit-btn" type="button" onclick="openPhotoEdit('avatar', '', '<?= e(avatar_url($me['avatar'] ?? '', $me['username'])) ?>', 'Profile photo')" aria-label="Edit photo">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
               </button>
             </div>
@@ -173,9 +173,13 @@ require __DIR__ . '/_layout_top.php';
 
         <div class="card card-pad">
           <h3>Cover photo</h3>
-          <div style="border-radius:var(--r-sm);overflow:hidden;background:var(--surface-3);aspect-ratio:16/9;display:grid;place-items:center">
+          <div style="position:relative;border-radius:var(--r-sm);overflow:hidden;background:var(--surface-3);aspect-ratio:16/9;display:grid;place-items:center">
             <?php if ($me['cover'] ?? ''): ?>
-              <img src="<?= e(avatar_url($me['cover'] ?? '', null)) ?>" alt="Cover" data-fb style="width:100%;height:100%;object-fit:cover">
+              <img id="coverPreview" src="<?= e(avatar_url($me['cover'] ?? '', null)) ?>" alt="Cover" data-fb style="width:100%;height:100%;object-fit:cover">
+              <button type="button" onclick="openPhotoEdit('cover', '', '<?= e(avatar_url($me['cover'] ?? '', null)) ?>', 'Cover photo')" aria-label="Edit cover"
+                      style="position:absolute;top:.5rem;right:.5rem;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
             <?php else: ?>
               <span class="text-muted" style="font-size:.9rem">No cover photo</span>
             <?php endif; ?>
@@ -210,7 +214,7 @@ require __DIR__ . '/_layout_top.php';
             <?php foreach ($myPhotos as $ph): ?>
               <div style="position:relative">
                 <img src="<?= e(avatar_url($ph['photo'], null)) ?>" data-full="<?= e(avatar_url($ph['photo'], null)) ?>" alt="Your photo" data-fb loading="lazy">
-                <button class="img-edit-btn" type="button" data-img-edit data-action="photo" data-photo-id="<?= (int)$ph['id'] ?>" data-img-src="<?= e(avatar_url($ph['photo'], null)) ?>" data-img-alt="Gallery photo" aria-label="Edit photo" style="top:.3rem;right:auto;left:.3rem;width:28px;height:28px">
+                <button class="img-edit-btn" type="button" onclick="openPhotoEdit('photo', <?= (int)$ph['id'] ?>, '<?= e(avatar_url($ph['photo'], null)) ?>', 'Gallery photo')" aria-label="Edit photo" style="top:.3rem;right:auto;left:.3rem;width:28px;height:28px">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </button>
                 <form method="post" action="/edit_profile.php"
@@ -289,3 +293,239 @@ require __DIR__ . '/_layout_top.php';
 </div>
 
 <?php require __DIR__ . '/_layout_bottom.php'; ?>
+
+<!-- Photo Edit Modal -->
+<div id="photoEditModal" class="photo-edit-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center">
+  <div class="photo-edit-content" style="background:#fff;border-radius:12px;width:90%;max-width:800px;max-height:90vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.5rem;border-bottom:1px solid #e0e0e0">
+      <h3 style="margin:0;color:#c44569">Edit Photo</h3>
+      <button onclick="closePhotoEdit()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666">×</button>
+    </div>
+    
+    <div style="padding:1.5rem;overflow-y:auto;flex:1">
+      <div style="display:flex;gap:2rem;flex-wrap:wrap">
+        <!-- Image Preview -->
+        <div style="flex:1;min-width:280px">
+          <div style="border:2px solid #e0e0e0;border-radius:8px;overflow:hidden;background:#f5f5f5;height:400px;display:flex;align-items:center;justify-content:center;position:relative">
+            <img id="editImage" src="" alt="Edit preview" style="max-width:100%;max-height:100%;transform-origin:center center;transition:transform 0.2s, filter 0.2s">
+          </div>
+          
+          <!-- Zoom Controls -->
+          <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:1rem">
+            <button onclick="zoomEditImage(-0.2)" style="width:40px;height:40px;border-radius:50%;border:2px solid #c44569;background:#fff;color:#c44569;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+            <span id="editZoomLevel" style="padding:8px 16px;border:2px solid #e0e0e0;border-radius:20px;font-size:14px;color:#666;min-width:60px;text-align:center">100%</span>
+            <button onclick="zoomEditImage(0.2)" style="width:40px;height:40px;border-radius:50%;border:2px solid #c44569;background:#fff;color:#c44569;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+            <button onclick="resetEditZoom()" style="padding:8px 16px;border:2px solid #e0e0e0;background:#fff;color:#666;border-radius:20px;cursor:pointer;font-size:14px">Reset</button>
+          </div>
+        </div>
+        
+        <!-- Filter Controls -->
+        <div style="flex:1;min-width:280px">
+          <h4 style="color:#666;margin-bottom:1rem;font-size:14px;text-transform:uppercase;letter-spacing:0.5px">Filters</h4>
+          
+          <div style="display:grid;gap:1rem">
+            <div>
+              <label style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:4px">
+                <span>Brightness</span>
+                <span id="brightnessVal">100%</span>
+              </label>
+              <input type="range" id="brightnessFilter" min="50" max="200" value="100" style="width:100%;accent-color:#c44569" oninput="applyEditFilter()">
+            </div>
+            
+            <div>
+              <label style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:4px">
+                <span>Contrast</span>
+                <span id="contrastVal">100%</span>
+              </label>
+              <input type="range" id="contrastFilter" min="50" max="200" value="100" style="width:100%;accent-color:#c44569" oninput="applyEditFilter()">
+            </div>
+            
+            <div>
+              <label style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:4px">
+                <span>Saturation</span>
+                <span id="saturationVal">100%</span>
+              </label>
+              <input type="range" id="saturationFilter" min="0" max="200" value="100" style="width:100%;accent-color:#c44569" oninput="applyEditFilter()">
+            </div>
+            
+            <div>
+              <label style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:4px">
+                <span>Blur</span>
+                <span id="blurVal">0px</span>
+              </label>
+              <input type="range" id="blurFilter" min="0" max="10" value="0" step="0.1" style="width:100%;accent-color:#c44569" oninput="applyEditFilter()">
+            </div>
+            
+            <div>
+              <label style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:4px">
+                <span>Grayscale</span>
+                <span id="grayscaleVal">0%</span>
+              </label>
+              <input type="range" id="grayscaleFilter" min="0" max="100" value="0" style="width:100%;accent-color:#c44569" oninput="applyEditFilter()">
+            </div>
+            
+            <div>
+              <label style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:4px">
+                <span>Hue Rotate</span>
+                <span id="hueVal">0°</span>
+              </label>
+              <input type="range" id="hueFilter" min="0" max="360" value="0" style="width:100%;accent-color:#c44569" oninput="applyEditFilter()">
+            </div>
+            
+            <div>
+              <label style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:4px">
+                <span>Rotate</span>
+                <span id="rotateVal">0°</span>
+              </label>
+              <input type="range" id="rotateFilter" min="-180" max="180" value="0" step="90" style="width:100%;accent-color:#c44569" oninput="applyEditFilter()">
+            </div>
+          </div>
+          
+          <button onclick="resetEditFilters()" style="margin-top:1rem;padding:10px 20px;border:2px solid #e0e0e0;background:#fff;color:#666;border-radius:8px;cursor:pointer;font-size:14px;width:100%">
+            Reset All Filters
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;gap:1rem;padding:1rem 1.5rem;border-top:1px solid #e0e0e0">
+      <button onclick="closePhotoEdit()" style="padding:10px 20px;border:2px solid #e0e0e0;background:#fff;color:#666;border-radius:8px;cursor:pointer;font-size:14px">Cancel</button>
+      <button id="saveEditBtn" onclick="saveEditedPhoto()" style="padding:10px 20px;border:none;background:#c44569;color:#fff;border-radius:8px;cursor:pointer;font-size:14px">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let editZoomLevel = 100;
+  let currentEditAction = '';
+  let currentEditPhotoId = '';
+  let currentEditOriginalSrc = '';
+  
+  function openPhotoEdit(action, photoId, imgSrc, imgAlt) {
+    currentEditAction = action;
+    currentEditPhotoId = photoId || '';
+    currentEditOriginalSrc = imgSrc;
+    
+    const img = document.getElementById('editImage');
+    img.src = imgSrc;
+    img.alt = imgAlt || 'Edit preview';
+    
+    resetEditZoom();
+    resetEditFilters();
+    
+    document.getElementById('photoEditModal').style.display = 'flex';
+  }
+  
+  function closePhotoEdit() {
+    document.getElementById('photoEditModal').style.display = 'none';
+  }
+  
+  function zoomEditImage(delta) {
+    editZoomLevel += (delta * 100);
+    editZoomLevel = Math.max(50, Math.min(300, editZoomLevel));
+    
+    const img = document.getElementById('editImage');
+    img.style.transform = `scale(${editZoomLevel / 100}) rotate(${document.getElementById('rotateFilter').value}deg)`;
+    
+    document.getElementById('editZoomLevel').textContent = Math.round(editZoomLevel) + '%';
+  }
+  
+  function resetEditZoom() {
+    editZoomLevel = 100;
+    const img = document.getElementById('editImage');
+    img.style.transform = `scale(1) rotate(${document.getElementById('rotateFilter').value}deg)`;
+    document.getElementById('editZoomLevel').textContent = '100%';
+  }
+  
+  function applyEditFilter() {
+    const brightness = document.getElementById('brightnessFilter').value;
+    const contrast = document.getElementById('contrastFilter').value;
+    const saturation = document.getElementById('saturationFilter').value;
+    const blur = document.getElementById('blurFilter').value;
+    const grayscale = document.getElementById('grayscaleFilter').value;
+    const hue = document.getElementById('hueFilter').value;
+    const rotate = document.getElementById('rotateFilter').value;
+    
+    document.getElementById('brightnessVal').textContent = brightness + '%';
+    document.getElementById('contrastVal').textContent = contrast + '%';
+    document.getElementById('saturationVal').textContent = saturation + '%';
+    document.getElementById('blurVal').textContent = blur + 'px';
+    document.getElementById('grayscaleVal').textContent = grayscale + '%';
+    document.getElementById('hueVal').textContent = hue + '°';
+    document.getElementById('rotateVal').textContent = rotate + '°';
+    
+    const img = document.getElementById('editImage');
+    img.style.transform = `scale(${editZoomLevel / 100}) rotate(${rotate}deg)`;
+    img.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px) grayscale(${grayscale}%) hue-rotate(${hue}deg)`;
+  }
+  
+  function resetEditFilters() {
+    document.getElementById('brightnessFilter').value = 100;
+    document.getElementById('contrastFilter').value = 100;
+    document.getElementById('saturationFilter').value = 100;
+    document.getElementById('blurFilter').value = 0;
+    document.getElementById('grayscaleFilter').value = 0;
+    document.getElementById('hueFilter').value = 0;
+    document.getElementById('rotateFilter').value = 0;
+    
+    applyEditFilter();
+  }
+  
+  function saveEditedPhoto() {
+    // Save the edited photo by submitting the form
+    const brightness = document.getElementById('brightnessFilter').value;
+    const contrast = document.getElementById('contrastFilter').value;
+    const saturation = document.getElementById('saturationFilter').value;
+    const blur = document.getElementById('blurFilter').value;
+    const grayscale = document.getElementById('grayscaleFilter').value;
+    const hue = document.getElementById('hueFilter').value;
+    const rotate = document.getElementById('rotateFilter').value;
+    
+    // Create a form to submit the filter values
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/edit_profile.php';
+    
+    // Add hidden fields
+    const fields = [
+      ['action', currentEditAction === 'avatar' ? 'avatar_edit' : currentEditAction === 'cover' ? 'cover_edit' : 'photo_edit'],
+      ['photo_id', currentEditPhotoId],
+      ['brightness', brightness],
+      ['contrast', contrast],
+      ['saturation', saturation],
+      ['blur', blur],
+      ['grayscale', grayscale],
+      ['hue', hue],
+      ['rotate', rotate]
+    ];
+    
+    fields.forEach(([name, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    });
+    
+    // Add CSRF token
+    const csrf = document.querySelector('input[name="csrf"]');
+    if (csrf) {
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrf';
+      csrfInput.value = csrf.value;
+      form.appendChild(csrfInput);
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
+  }
+  
+  // Close modal on outside click
+  document.getElementById('photoEditModal').addEventListener('click', function(e) {
+    if (e.target === this) closePhotoEdit();
+  });
+</script>
