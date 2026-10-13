@@ -505,25 +505,43 @@ function apply_image_filters(string $filename, array $filters): ?string
     $grayscale  = (int)($filters['grayscale'] ?? 0);
     $hue        = (int)($filters['hue'] ?? 0);
     $rotate     = (int)($filters['rotate'] ?? 0);
+    $zoom       = (float)($filters['zoom'] ?? 1);   // 1.0 = full image, 2.0 = crop center 50%
 
-    // Filters that operate on a GD image resource
+    // Crop (zoom) is applied first, before filters, so filters act on the cropped region.
+    if ($zoom >= 1.1) {
+        $w = imagesx($src);
+        $h = imagesy($src);
+        $newW = max(1, (int)round($w / $zoom));
+        $newH = max(1, (int)round($h / $zoom));
+        $newSrcX = (int)round(($w - $newW) / 2);
+        $newSrcY = (int)round(($h - $newH) / 2);
+        $cropped = imagecreatetruecolor($newW, $newH);
+        // Preserve alpha for PNG/WebP
+        imagealphablending($cropped, false);
+        imagesavealpha($cropped, true);
+        imagecopyresampled($cropped, $src, 0, 0, $newSrcX, $newSrcY, $newW, $newH, $newW, $newH);
+        imagedestroy($src);
+        $src = $cropped;
+    }
+
+    // Filters that operate on a GD image resource. imagefilter() requires int args.
     if ($brightness !== 100) {
-        imagefilter($src, IMG_FILTER_BRIGHTNESS, ($brightness - 100) * 2.55);
+        imagefilter($src, IMG_FILTER_BRIGHTNESS, (int)(($brightness - 100) * 2.55));
     }
     if ($contrast !== 100) {
-        imagefilter($src, IMG_FILTER_CONTRAST, ($contrast - 100) * 2.55);
+        imagefilter($src, IMG_FILTER_CONTRAST, (int)(($contrast - 100) * 2.55));
     }
     if ($saturation !== 100) {
-        imagefilter($src, IMG_FILTER_SATURATION, ($saturation - 100) * 2.55);
+        imagefilter($src, IMG_FILTER_SATURATION, (int)(($saturation - 100) * 2.55));
     }
     if ($grayscale > 0) {
-        imagefilter($src, IMG_FILTER_GRAYSCALE, $grayscale);
+        imagefilter($src, IMG_FILTER_GRAYSCALE, (int)$grayscale);
     }
     if ($blur > 0) {
         imagefilter($src, IMG_FILTER_SMOOTH, (int)($blur * 10));
     }
     if ($hue !== 0) {
-        imagefilter($src, IMG_FILTER_HUE, $hue);
+        imagefilter($src, IMG_FILTER_HUE, (int)$hue);
     }
 
     // Rotation (90-degree steps)

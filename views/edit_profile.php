@@ -483,12 +483,13 @@ require __DIR__ . '/_layout_top.php';
     const grayscale = document.getElementById('grayscaleFilter').value;
     const hue = document.getElementById('hueFilter').value;
     const rotate = document.getElementById('rotateFilter').value;
-    
+    const zoom = editZoomLevel / 100;
+
     // Create a form to submit the filter values
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/edit_profile.php';
-    
+
     // Add hidden fields
     const fields = [
       ['action', currentEditAction === 'avatar' ? 'avatar_edit' : currentEditAction === 'cover' ? 'cover_edit' : 'photo_edit'],
@@ -499,7 +500,8 @@ require __DIR__ . '/_layout_top.php';
       ['blur', blur],
       ['grayscale', grayscale],
       ['hue', hue],
-      ['rotate', rotate]
+      ['rotate', rotate],
+      ['zoom', zoom]
     ];
     
     fields.forEach(([name, value]) => {

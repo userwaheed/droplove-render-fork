@@ -167,9 +167,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $grayscale   = min(100, max(0,  (int)($_POST['grayscale'] ?? 0)));
         $hue         = min(360, max(0,  (int)($_POST['hue'] ?? 0)));
         $rotate      = in_array((int)($_POST['rotate'] ?? 0), [-180, -90, 0, 90, 180], true) ? (int)$_POST['rotate'] : 0;
+        $zoom        = min(4.0, max(1.0, (float)($_POST['zoom'] ?? 1)));
 
         if ($brightness === 100 && $contrast === 100 && $saturation === 100 &&
-            $blur === 0 && $grayscale === 0 && $hue === 0 && $rotate === 0) {
+            $blur === 0 && $grayscale === 0 && $hue === 0 && $rotate === 0 && $zoom < 1.1) {
             flash('info', 'No changes made.');
             redirect('/edit_profile.php?tab=photos');
         }
@@ -207,6 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'grayscale'  => $grayscale,
                 'hue'        => $hue,
                 'rotate'     => $rotate,
+                'zoom'       => $zoom,
             ]);
 
             if ($newName) {
