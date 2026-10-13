@@ -4,52 +4,51 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/db.php';
 header('Content-Type: text/plain');
 
-echo "GD loaded: " . (extension_loaded('gd') ? 'YES' : 'NO') . "\n";
-echo "imagefilter: " . (function_exists('imagefilter') ? 'YES' : 'NO') . "\n";
-echo "imagerotate: " . (function_exists('imagerotate') ? 'YES' : 'NO') . "\n";
-echo "imagecreatefromjpeg: " . (function_exists('imagecreatefromjpeg') ? 'YES' : 'NO') . "\n";
-echo "uploads table:\n";
-try {
-    $pdo = db();
-    $rows = $pdo->query("SELECT filename, mime, size FROM uploads")->fetchAll();
-    echo "uploads rows: " . count($rows) . "\n";
-    foreach ($rows as $r) {
-        echo "  " . $r['filename'] . " | " . $r['mime'] . " | " . $r['size'] . " bytes\n";
-    }
-} catch (Throwable $e) {
-    echo "ERROR reading uploads: " . $e->getMessage() . "\n";
-}
+echo "PHP: " . PHP_VERSION . "\n";
+echo "GD: " . (extension_loaded('gd') ? 'YES' : 'NO') . "\n";
+echo "DB_STORAGE: " . DB_STORAGE . "\n";
+echo "data/ writable: " . (is_writable(__DIR__ . '/data') ? 'YES' : 'NO') . "\n";
+$tf = @tempnam(sys_get_temp_dir(), 'wt_');
+echo "tempnam: " . ($tf ? 'OK' : 'FAILED') . "\n";
+if ($tf) { echo "tmp write: " . (@file_put_contents($tf,'x') !== false ? 'OK' : 'FAIL') . "\n"; @unlink($tf); }
 
-// Test the filter function on an existing upload
+echo "uploads rows before: " . db()->query("SELECT COUNT(*) FROM uploads")->fetchColumn() . "\n";
+try { echo "users rows: " . db()->query("SELECT COUNT(*) FROM users")->fetchColumn() . "\n"; }
+catch (Throwable $e) { echo "users: " . $e->getMessage() . "\n"; }
+
+// Self-contained: create upload, apply filters, verify — one request, survives deploy wipe
 try {
     $pdo = db();
-    $row = $pdo->query("SELECT filename FROM uploads LIMIT 1")->fetch();
-    if ($row) {
-        echo "\nTesting apply_image_filters on: " . $row['filename'] . "\n";
-        $result = apply_image_filters($row['filename'], [
-            'brightness' => 150, 'contrast' => 100, 'saturation' => 100,
-            'blur' => 0, 'grayscale' => 100, 'hue' => 0, 'rotate' => 0,
+    $im = imagecreatetruecolor(200, 200);
+    for ($x=0;$x<200;$x++) for ($y=0;$y<200;$y++) imagesetpixel($im,$x,$y, (($x*255)/200), (($y*255)/200), 100);
+    ob_start(); imagepng($im, null, 5); $pngData = ob_get_clean(); imagedestroy($im);
+
+    $testName = 'diag_' . bin2hex(random_bytes(4)) . '.png';
+    $stmt = $pdo->prepare('INSERT OR IGNORE INTO uploads (filename, mime, data, size) VALUES (?,?,?,?)');
+    $stmt->execute([$testName, 'image/png', $pngData, strlen($pngData)]);
+    echo "\nInserted $testName (" . strlen($pngData) . " bytes)\n";
+
+    $stmt2 = $pdo->prepare("SELECT size FROM uploads WHERE filename=?"); $stmt2->execute([$testName]);
+    echo "Read back size: " . ($stmt2->fetchColumn(false) ?: 'MISSING') . "\n";
+
+    echo "--- apply_image_filters (grayscale=100, brightness=150) ---\n";
+    try {
+        $result = apply_image_filters($testName, [
+            'brightness'=>150,'contrast'=>100,'saturation'=>100,
+            'blur'=>0,'grayscale'=>100,'hue'=>0,'rotate'=>0,
         ]);
-        echo "Result: " . ($result ? $result : 'NULL (failed)') . "\n";
-    } else {
-        echo "\nNo uploads to test.\n";
+        echo "RESULT: " . ($result ?: 'NULL') . "\n";
+    } catch (Throwable $e) {
+        echo "EXCEPTION [" . get_class($e) . "]: " . $e->getMessage() . "\n";
+        echo "  at " . basename($e->getFile()) . ":" . $e->getLine() . "\n";
     }
-} catch (Throwable $e) {
-    echo "\nEXCEPTION: " . $e->getMessage() . "\n";
-    echo $e->getTraceAsString() . "\n";
-}
 
-// Direct GD test
-try {
-    $im = imagecreatetruecolor(50, 50);
-    imagefill($im, 0, 0, 0xFF0000);
-    imagefilter($im, IMG_FILTER_BRIGHTNESS, 100);
-    imagefilter($im, IMG_FILTER_GRAYSCALE, 100);
-    ob_start();
-    imagejpeg($im, null, 80);
-    $out = ob_get_clean();
-    imagedestroy($im);
-    echo "\nDirect GD test: OK, " . strlen($out) . " bytes output\n";
+    $stmt3 = $pdo->prepare("SELECT filename,size FROM uploads WHERE filename LIKE 'edited_%'");
+    $stmt3->execute([]);
+    $ed = $stmt3->fetchAll();
+    echo "edited_ files: " . count($ed) . "\n";
+    foreach ($ed as $ef) echo "  " . $ef['filename'] . " size=" . $ef['size'] . "\n";
 } catch (Throwable $e) {
-    echo "\nDirect GD test FAILED: " . $e->getMessage() . "\n";
+    echo "SETUP EXCEPTION [" . get_class($e) . "]: " . $e->getMessage() . "\n";
+    echo "  at " . basename($e->getFile()) . ":" . $e->getLine() . "\n";
 }
